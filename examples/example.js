@@ -6,7 +6,7 @@ const Input = (value, validator) => {
         'value': value, 'onchange':
           (e) => {
             valid = validator(input.value);
-            setValue(valid ? input.value : value);
+            value = valid ? input.value : value;
             console.log(valid, value);
           }
       }),
@@ -39,3 +39,4 @@ t.ready(() => {
     t(App, 'This is a input component validation example')
   })
 })
+

@@ -846,7 +846,6 @@
   t.route = route;
   t.router = router;
   t.json = json;
-  t.state = state;
   t.self = self;
   window.t = t;
 })();
