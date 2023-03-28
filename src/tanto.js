@@ -783,6 +783,12 @@
     }
   }
   /**
+   * Get current node in rendering
+   */
+  function self(){
+    return currentNode;
+  }
+  /**
    * Component API.
    * Each component declared by factory function.
    * Resulted object represents component inner state.

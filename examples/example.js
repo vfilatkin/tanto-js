@@ -3,7 +3,8 @@ const Input = (value, validator) => {
   return (
     t('div'),
       input = t.void('input', {
-        'value': value, 'onchange':
+        'value': value, 
+        'onchange':
           (e) => {
             valid = validator(input.value);
             value = valid ? input.value : value;
