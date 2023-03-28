@@ -1,6 +1,5 @@
-const Input = (_value, validator) => {
+const Input = (value, validator) => {
   let input;
-  let [value, setValue] = t.state(_value);
   return (
     t('div'),
       input = t.void('input', {
