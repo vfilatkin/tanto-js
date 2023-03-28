@@ -783,30 +783,13 @@
     }
   }
   /**
-   * Hooks API
-   */
-  const componentHooks = [];
-  let componentHookIndex = 0;
-  function state(value){
-    const currentHookIndex = componentHookIndex;
-    componentHooks[currentHookIndex] = componentHooks[currentHookIndex] || value;
-    function setState(newValue){
-      if(typeof newValue === 'function'){
-        componentHooks[currentHookIndex] = newValue(componentHooks[componentHookIndex]);
-      } else {
-        componentHooks[currentHookIndex] = newValue;
-      }
-    }
-    componentHookIndex += 1;
-    return [componentHooks[currentHookIndex], setState]
-  }
-  /**
    * Component API.
    * Each component declared by factory function.
    * Resulted object represents component inner state.
    * Upon mounting data will be wrapped into component node.
    */
   function mount(componentFn, ...args){
+    currentComponent = componentFn;
     const component = componentFn(...args);
     return component;
   }
@@ -864,5 +847,6 @@
   t.router = router;
   t.json = json;
   t.state = state;
+  t.self = self;
   window.t = t;
 })();
