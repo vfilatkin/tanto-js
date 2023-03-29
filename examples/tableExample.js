@@ -1,7 +1,7 @@
 /**
  * fetch() replacement for async operations example.
  */
-const fetch$ = (url) => {
+const fetch$ = (url, delayTime = 3000, timeOut = 5000) => {
   const delay = ms => {
     return new Promise((resolve, reject) => {
       setTimeout(() => {
@@ -24,8 +24,8 @@ const fetch$ = (url) => {
   }
 
   return Promise.race([
-    delay(2000).then( () => {return getApiData()}),
-    new Promise((_, fail) => setTimeout(() => fail(new Error('Timeout')), 5000))
+    delay(delayTime).then( () => {return getApiData()}),
+    new Promise((_, fail) => setTimeout(() => fail(new Error('Timeout')), timeOut))
   ]);
 }
 
@@ -53,10 +53,12 @@ const TableRow = rowData => {
 
 const TableBody = tableData => {
   return (
-    t('tbody'),
-      tableData.forEach(rowData => {
-        t(TableRow, rowData)
-      }),
+    t('table'),
+      t('tbody'),
+        tableData.forEach(rowData => {
+          t(TableRow, rowData)
+        }),
+      t(),
     t()
   );
 }
@@ -78,6 +80,26 @@ const TableError = () => {
 }
 
 const Table = api => {
+  let [data, setData] = t.state({});
+  let table = TablePending();
+
+  fetch$(api)
+  .then(
+    tableData => {
+      t.outer(table, () => {
+        return TableBody(tableData);
+      })
+    }
+  )
+  .catch(
+    error => {
+      t.outer(table, () => {
+        return TableError(error);
+      })
+    }
+  )
+
+  return table;
 
 }
 
