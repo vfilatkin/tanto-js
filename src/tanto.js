@@ -789,24 +789,6 @@
     return currentNode;
   }
   /**
-   * Hooks API
-   */
-  const componentHooks = [];
-  let componentHookIndex = 0;
-  function state(value){
-    const currentHookIndex = componentHookIndex;
-    componentHooks[currentHookIndex] = componentHooks[currentHookIndex] || value;
-    function setState(newValue){
-      if(typeof newValue === 'function'){
-        componentHooks[currentHookIndex] = newValue(componentHooks[componentHookIndex]);
-      } else {
-        componentHooks[currentHookIndex] = newValue;
-      }
-    }
-    componentHookIndex += 1;
-    return [componentHooks[currentHookIndex], setState]
-  }
-  /**
    * Component API.
    * Each component declared by factory function.
    * Resulted object represents component inner state.
@@ -871,6 +853,5 @@
   t.router = router;
   t.json = json;
   t.self = self;
-  t.state = state;
   window.t = t;
 })();
