@@ -210,126 +210,6 @@
     });
   }
   /**
-   * Built-in AJAX method.
-   * It is strongly recomended to use 
-   * modern APIs such as fetch() instead.
-   * @param {object} options                    - An object containing the fields below.
-   * @param {string} options.url                - Request URL
-   * @param {string} options.method             - Request method ('set' or 'get')
-   * @param {boolean} options.async             - Request async ('set' or 'get')
-   * @param {object} options.data               - Request body.
-   * @param {string | function} options.convert - Callback function or 'json'.
-   * @param {function} options.resolve          - Callback if request successful.
-   * @param {function} options.reject           - Callback if request failed.
-   * @param {function} options.pending          - Callback after request sended.
-   */
-  //Main ajax method
-  function request(options) {
-    //set options default values
-    if (options.url !== undefined) {
-      options.method = options.method || 'get';
-      options.async = options.async || true;
-      //XHR
-      var xhr = new XMLHttpRequest();
-      xhr.open(
-        options.method,
-        options.url,
-        options.async
-      );
-      xhr.onload = function() {
-        var response;
-        if (this.status >= 200 && this.status < 300) {
-          response = xhr.response;
-          //handle raw data
-          if (typeof options.convert !== undefined) {
-            if (typeof options.convert === 'function') {
-              //custom callback
-              response = options.convert(response);
-            } else {
-              //convert to json
-              if (typeof options.convert === 'string') {
-                if (options.convert === 'json')
-                  response = JSON.parse(response);
-              }
-            }
-          }
-          //callback on response
-          if (typeof options.resolve === 'function')
-            options.resolve(response);
-        } else {
-          //callback on reject
-          if (typeof options.reject === 'function')
-            options.reject(xhr);
-        }
-      }
-      //callback on pending (safe call)
-      //(i.e. separate function to draw loading screen etc.)
-      if (typeof options.pending === 'function')
-        options.pending();
-      //callback to prepare data (if defined)
-      if (typeof options.beforeSend === 'function')
-        options.data = options.beforeSend(options.data);
-      //send request
-      if (options.method === 'post') {
-        xhr.send(options.data);
-      } else {
-        xhr.send();
-      }
-    }
-  }
-  /**
-   * Built-in additional group for JSON handling methods.
-   */
-  var json = {
-   /**
-    * Converts json to FormData.
-    * @param {JSON} json - JSON object for conversion.
-    * @returns {FormData} - AJAX-ready data.
-    */
-    form: function(json) {
-      var data = new FormData();
-      for (var key in json) {
-        data.append(key, json[key]);
-      }
-      return data;
-    },
-    /**
-    * Shorthand function. Fetch JSON from server [GET]
-    * @param {string} url - Request URL
-    * @param {function} resolve - Callback if request successful.
-    * @param {function} reject  - Callback if request failed.
-    * @param {function} pending - Callback after request sended.
-    */
-    get: function(url, resolve, reject, pending) {
-      request({
-        url: url,
-        convert: "json",
-        resolve: resolve || noop,
-        reject: reject || noop,
-        pending: pending || noop
-      });
-    },
-    /**
-    * Shorthand function. Fetch JSON from server [POST]
-    * @param {string} url - Request URL
-    * @param {object} data - Request body.
-    * @param {function} resolve - Callback if request successful.
-    * @param {function} reject  - Callback if request failed.
-    * @param {function} pending - Callback after request sended.
-    */
-    post: function(url, data, resolve, reject, pending) {
-      request({
-        url: url,
-        method: "post",
-        data: data,
-        convert: "json",
-        resolve: resolve || noop,
-        reject: reject || noop,
-        pending: pending || noop
-      });
-    }
-  };
-  /**
    * The DOM Patcher.
    * 
    * Commands to track patcher movement. 
@@ -428,6 +308,7 @@
     currentNode = currentRootNode;
     patchFn();
     removeUnopened();
+    console.log(hooks);
   })
   //Patch element outerHTML
   var patchOuter = Patcher(function(patchFn){
@@ -783,12 +664,6 @@
     }
   }
   /**
-   * Get current node in rendering
-   */
-  function self(){
-    return currentNode;
-  }
-  /**
    * Hooks API
    */
   const hooks = [];
@@ -797,11 +672,8 @@
     const currentHookIndex = hookIndex;
     hooks[currentHookIndex] = hooks[currentHookIndex] || value;
     function setState(newValue){
-      if(typeof newValue === 'function'){
-        hooks[currentHookIndex] = newValue(hooks[hookIndex]);
-      } else {
-        hooks[currentHookIndex] = newValue;
-      }
+      hooks[currentHookIndex] = newValue;
+      console.log(hooks);
     }
     hookIndex++;
     return [hooks[currentHookIndex], setState]
@@ -866,11 +738,8 @@
   t.text = textNode;
   t.comment = commentNode;
   t.clear = clearNode;
-  t.request = request;
   t.route = route;
   t.router = router;
-  t.json = json;
-  t.self = self;
   t.state = state;
   window.t = t;
 })();
