@@ -248,7 +248,9 @@
       //Added event listeners.
       eventListeners = null,
       //Current component
-      currentComponent = null;
+      currentComponent = null,
+      //Current component
+      currentComponentHook = null;
   /**
    * Patches elements of DOM-tree
    * @param {element} element - Entry element of patch.
@@ -299,6 +301,7 @@
         patchParent = pPatchParent,
         eventListeners = pEventListeners,
         currentComponent = pCurrentComponent;
+        hookIndex = 0;
       }
       return element;
     }
@@ -666,17 +669,29 @@
   /**
    * Hooks API
    */
-  const hooks = [];
+  let hooks = [];
   let hookIndex = 0;
   function state(value){
-    const currentHookIndex = hookIndex;
-    hooks[currentHookIndex] = hooks[currentHookIndex] || value;
+    const hookIndexCopy = hookIndex;
+    const currentComponentHookCopy = currentComponentHook;
+    hooks[hookIndexCopy] = hooks[hookIndexCopy] || value;
     function setState(newValue){
-      hooks[currentHookIndex] = newValue;
-      console.log(hooks);
+      hooks[hookIndexCopy] = newValue;
+      //patchOuter(hooks[currentComponentHookCopy], currentComponentCopy)
+      // patchOuter(hooks[currentComponentHookCopy][0], hooks[currentComponentHookCopy][1])
+      console.log(hooks, hooks[currentComponentHookCopy]);
     }
     hookIndex++;
-    return [hooks[currentHookIndex], setState]
+    return [hooks[hookIndexCopy], setState]
+  }
+  /**
+   * Internal hooks
+   */
+  function updateComponentHook(){
+    const hookIndexCopy = hookIndex;
+    hooks[hookIndexCopy] = hooks[hookIndexCopy] || null;
+    hookIndex++;
+    return hookIndexCopy;
   }
   /**
    * Component API.
@@ -685,8 +700,10 @@
    * Upon mounting data will be wrapped into component node.
    */
   function mount(componentFn, ...args){
-    currentComponent = componentFn;
+    let currentComponentHookIndex = updateComponentHook(null);
+    currentComponentHook = currentComponentHookIndex;
     const component = componentFn(...args);
+    hooks[currentComponentHookIndex] = [component, componentFn];
     return component;
   }
   /**

@@ -19,6 +19,7 @@ const App = title => {
     t('div'),
       t.text(title),
       t(Counter, 3),
+      t(Counter, 33),
     t()
   );
 }
