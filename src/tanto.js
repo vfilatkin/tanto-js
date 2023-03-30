@@ -431,7 +431,7 @@
   })
   //Patch element outerHTML
   var patchOuter = Patcher(function(patchFn){
-    currentNode = {firstChild : currentNode}
+    currentNode = {firstChild : currentNode};
     patchFn();
   })
   //True if same tag
@@ -766,7 +766,7 @@
    * @example
    */
   function commentNode(value) {
-    var node = openNode(null,Node.COMMENT_NODE, value);
+    var node = openNode(null, Node.COMMENT_NODE, value);
     closeNode();
     return node;
   }
@@ -791,20 +791,20 @@
   /**
    * Hooks API
    */
-  const componentHooks = [];
-  let componentHookIndex = 0;
+  const hooks = [];
+  let hookIndex = 0;
   function state(value){
-    const currentHookIndex = componentHookIndex;
-    componentHooks[currentHookIndex] = componentHooks[currentHookIndex] || value;
+    const currentHookIndex = hookIndex;
+    hooks[currentHookIndex] = hooks[currentHookIndex] || value;
     function setState(newValue){
       if(typeof newValue === 'function'){
-        componentHooks[currentHookIndex] = newValue(componentHooks[componentHookIndex]);
+        hooks[currentHookIndex] = newValue(hooks[hookIndex]);
       } else {
-        componentHooks[currentHookIndex] = newValue;
+        hooks[currentHookIndex] = newValue;
       }
     }
-    componentHookIndex += 1;
-    return [componentHooks[currentHookIndex], setState]
+    hookIndex++;
+    return [hooks[currentHookIndex], setState]
   }
   /**
    * Component API.

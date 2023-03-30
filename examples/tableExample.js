@@ -80,27 +80,34 @@ const TableError = () => {
 }
 
 const Table = api => {
-  let [data, setData] = t.state({});
-  let table = TablePending();
-
-  fetch$(api)
-  .then(
-    tableData => {
-      t.outer(table, () => {
-        return TableBody(tableData);
-      })
-    }
-  )
-  .catch(
-    error => {
-      t.outer(table, () => {
-        return TableError(error);
-      })
-    }
-  )
-
+  let table;
+  let [apiUrl, setApiUrl] = t.state(api);
+  let [data, setData] = t.state(null);
+  
+  const apiCall = api => {
+    table = TablePending();
+    fetch$(api)
+    .then(
+      tableData => {
+        t.outer(table, () => {
+          return TableBody(tableData);
+        })
+      }
+    )
+    .catch(
+      error => {
+        t.outer(table, () => {
+          return TableError(error);
+        })
+      }
+    )
+  }
+  if(!data){
+    apiCall(apiUrl);
+  } else {
+    table = TableBody(data);
+  }
   return table;
-
 }
 
 
