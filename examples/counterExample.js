@@ -2,14 +2,18 @@ const Counter = initialCount => {
   let [count, setCount] = t.state(initialCount);
   let [hitLimit, setHitLimit] = t.state(false);
 
-  const handleClick = event => {
+  const handleClick = () => {
     setCount(++count);
     if(count === 10) setHitLimit(true);
   }
 
   return (
-    t('button', {'onclick': handleClick}),
-      t.text(count),
+    t('div'),
+      t.text('Click the button'),
+      t('button', {'onclick': handleClick}),
+        t.text(count),
+      t(),
+      (hitLimit? t.text('Limit reached!!!'): null),
     t()
   );
 }
@@ -19,7 +23,8 @@ const App = title => {
     t('div'),
       t.text(title),
       t(Counter, 3),
-      t(Counter, 33),
+      t(Counter, 5),
+      t(Counter, 7),
     t()
   );
 }
