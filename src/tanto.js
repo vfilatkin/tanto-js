@@ -667,7 +667,7 @@
     }
   }
   /**
-   * Hooks API
+   * Hooks
    */
   let hooks = [];
   let hookIndex = 0;
@@ -677,34 +677,64 @@
     hooks[hookIndexCopy] = hooks[hookIndexCopy] || value;
     function setState(newValue){
       hooks[hookIndexCopy] = newValue;
-      //patchOuter(hooks[currentComponentHookCopy], currentComponentCopy)
-      // patchOuter(hooks[currentComponentHookCopy][0], hooks[currentComponentHookCopy][1])
+      updateContext(hooks[currentComponentHookCopy]);
       console.log(hooks, hooks[currentComponentHookCopy]);
     }
     hookIndex++;
     return [hooks[hookIndexCopy], setState]
   }
-  /**
-   * Internal hooks
-   */
-  function updateComponentHook(){
+
+  function EmptyHook(){
     const hookIndexCopy = hookIndex;
-    hooks[hookIndexCopy] = hooks[hookIndexCopy] || null;
+    hooks[hookIndexCopy] = null;
     hookIndex++;
     return hookIndexCopy;
   }
+
+  function updateContext(componentContext){
+    if(!componentContext || componentContext.type !== HookType.ComponentContext) 
+      throw new Error('Cannot apply context');
+    const pHookIndex = hookIndex;
+    hookIndex = componentContext.startHook;
+    const element = patchOuter(componentContext.element, componentContext.component);
+    hookIndex = pHookIndex;
+    componentContext.element = element;
+  }
+
+  let HookType = {};
+
+  (function(){
+    let index = 1;
+    function T(name){HookType[HookType[name] = ++index] = name;};
+    T('ComponentContext');
+    T('State');
+    /* ... */
+  })();
+
+  function ComponentContext(element, componentFn, startHook, endHook){
+    this.type = HookType.ComponentContext;
+    this.element = element;
+    this.component = componentFn;
+    this.startHook = startHook;
+    this.endHook = endHook;
+  };
+
+  function State(value){
+    this.type = HookType.State;
+    this.value = value;
+  };
+
   /**
    * Component API.
-   * Each component declared by factory function.
-   * Resulted object represents component inner state.
-   * Upon mounting data will be wrapped into component node.
    */
-  function mount(componentFn, ...args){
-    let currentComponentHookIndex = updateComponentHook(null);
-    currentComponentHook = currentComponentHookIndex;
-    const component = componentFn(...args);
-    hooks[currentComponentHookIndex] = [component, componentFn];
-    return component;
+  function mount(component, ...args){
+    currentComponentHook = EmptyHook(null);
+    const currentComponentHookCopy = currentComponentHook;
+    const startHook = hookIndex;
+    const element = component(...args);
+    const endHook = hookIndex;
+    hooks[currentComponentHookCopy] = new ComponentContext(element, component, startHook, endHook);
+    return element;
   }
   /**
    * Manipulates patcher movement through DOM-tree nodes of an element.
