@@ -9,9 +9,8 @@ const Counter = initialCount => {
 
   return (
     t('div'),
-      t.text('Click the button'),
       t('button', {'onclick': handleClick}),
-        t.text(count),
+        t('span'),t.text(`Clicked ${count}`),t(),
       t(),
       (hitLimit? t.text('Limit reached!!!'): null),
     t()
@@ -27,8 +26,11 @@ const App = title => {
 
   return (
     t('div'),
-      t.text(title),
-      t.text(`Rendered ${renderCount} times`),
+      t('div'),
+        t.text(title),
+        t.void('br'),
+        t.text(`Rendered ${renderCount} times`),
+      t(),
       t(Counter, 3),
       t(Counter, 5),
       t(Counter, 7),

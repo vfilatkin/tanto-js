@@ -661,11 +661,12 @@
   let hooks = [];
   let hookIndex = 0;
   let currentComponentHook = 0;
+  let currentComponentMounting = false;
 
   function state(value){
     const hookIndexCopy = hookIndex;
     const currentComponentHookCopy = currentComponentHook;
-    hooks[hookIndexCopy] = hooks[hookIndexCopy] || value;
+    hooks[hookIndexCopy] = currentComponentMounting? value : hooks[hookIndexCopy];
     function setState(newValue){
       hooks[hookIndexCopy] = newValue;
       updateContext(hooks[currentComponentHookCopy]);
@@ -688,7 +689,7 @@
     const pCurrentComponentHook = currentComponentHook;
     hookIndex = componentContext.startHook;
     currentComponentHook = componentContext.index;
-    patchOuter(componentContext.element, componentContext.component);
+    patchOuter(componentContext.element, function(){componentContext.component(...componentContext.args)});
     hookIndex = pHookIndex;
     currentComponentHook = pCurrentComponentHook;
   }
@@ -703,11 +704,12 @@
     /* ... */
   })();
 
-  function ComponentContext(element, index, component, startHook, endHook){
+  function ComponentContext(index, component, args, element, startHook, endHook){
     this.type = HookType.ComponentContext;
     this.index = index;
-    this.element = element;
     this.component = component;
+    this.args = args;
+    this.element = element;
     this.startHook = startHook;
     this.endHook = endHook;
   };
@@ -721,12 +723,14 @@
    * Component API.
    */
   function mount(component, ...args){
+    currentComponentMounting = true;
     currentComponentHook = EmptyHook(null);
     const currentComponentHookCopy = currentComponentHook;
     const startHook = hookIndex;
     const element = component(...args);
     const endHook = hookIndex;
-    hooks[currentComponentHookCopy] = new ComponentContext(element, currentComponentHookCopy, component, startHook, endHook);
+    hooks[currentComponentHookCopy] = new ComponentContext(currentComponentHookCopy, component, args, element, startHook, endHook);
+    currentComponentMounting = false;
     return element;
   }
   /**
