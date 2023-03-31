@@ -309,14 +309,14 @@
   //Inner patcher
   var patch = Patcher(function(patchFn){
     currentNode = currentRootNode;
-    patchFn();
+    let element = patchFn();
     removeUnopened();
-    console.log(hooks);
+    return element;
   })
   //Patch element outerHTML
   var patchOuter = Patcher(function(patchFn){
     currentNode = {firstChild : currentNode};
-    patchFn();
+    return patchFn();
   })
   //True if same tag
   function isSameTag(tag1, tag2) {
@@ -678,7 +678,7 @@
     function setState(newValue){
       hooks[hookIndexCopy] = newValue;
       updateContext(hooks[currentComponentHookCopy]);
-      console.log(hooks, hooks[currentComponentHookCopy]);
+      console.log(hooks);
     }
     hookIndex++;
     return [hooks[hookIndexCopy], setState]
@@ -696,9 +696,8 @@
       throw new Error('Cannot apply context');
     const pHookIndex = hookIndex;
     hookIndex = componentContext.startHook;
-    const element = patchOuter(componentContext.element, componentContext.component);
+    patch(componentContext.element, componentContext.component);
     hookIndex = pHookIndex;
-    componentContext.element = element;
   }
 
   let HookType = {};
