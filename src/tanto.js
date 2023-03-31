@@ -244,13 +244,7 @@
       //Created patch. Will be attached after it is comleted.
       patchRoot = null,
       //Parent for created patch.
-      patchParent = null,
-      //Added event listeners.
-      eventListeners = null,
-      //Current component
-      currentComponent = null,
-      //Current component
-      currentComponentHook = null;
+      patchParent = null;
   /**
    * Patches elements of DOM-tree
    * @param {element} element - Entry element of patch.
@@ -273,9 +267,7 @@
         pCurrentNode = currentNode,
         pPreviousNode = previousNode,
         pPatchRoot = patchRoot,
-        pPatchParent = patchParent,
-        pEventListeners = eventListeners,
-        pCurrentComponent = currentComponent;
+        pPatchParent = patchParent;
       //Setup new patch context copy
       currentRootNode = element, 
       namespace = namespaceURI ? { node: element, URI: namespaceURI } : null, 
@@ -285,8 +277,7 @@
       currentNodeType = element.nodeType,
       previousNode = null, 
       patchRoot = null, 
-      patchParent = null,
-      eventListeners = [];
+      patchParent = null;
       try{
         patcherFn(patchFn)
       } finally {
@@ -299,8 +290,6 @@
         previousNode = pPreviousNode, 
         patchRoot = pPatchRoot, 
         patchParent = pPatchParent,
-        eventListeners = pEventListeners,
-        currentComponent = pCurrentComponent;
         hookIndex = 0;
       }
       return element;
@@ -667,10 +656,12 @@
     }
   }
   /**
-   * Hooks
+   * Hooks API data
    */
   let hooks = [];
   let hookIndex = 0;
+  let currentComponentHook = 0;
+
   function state(value){
     const hookIndexCopy = hookIndex;
     const currentComponentHookCopy = currentComponentHook;
@@ -678,7 +669,6 @@
     function setState(newValue){
       hooks[hookIndexCopy] = newValue;
       updateContext(hooks[currentComponentHookCopy]);
-      console.log(hooks);
     }
     hookIndex++;
     return [hooks[hookIndexCopy], setState]
@@ -695,9 +685,12 @@
     if(!componentContext || componentContext.type !== HookType.ComponentContext) 
       throw new Error('Cannot apply context');
     const pHookIndex = hookIndex;
+    const pCurrentComponentHook = currentComponentHook;
     hookIndex = componentContext.startHook;
-    patch(componentContext.element, componentContext.component);
+    currentComponentHook = componentContext.index;
+    patchOuter(componentContext.element, componentContext.component);
     hookIndex = pHookIndex;
+    currentComponentHook = pCurrentComponentHook;
   }
 
   let HookType = {};
@@ -710,10 +703,11 @@
     /* ... */
   })();
 
-  function ComponentContext(element, componentFn, startHook, endHook){
+  function ComponentContext(element, index, component, startHook, endHook){
     this.type = HookType.ComponentContext;
+    this.index = index;
     this.element = element;
-    this.component = componentFn;
+    this.component = component;
     this.startHook = startHook;
     this.endHook = endHook;
   };
@@ -732,7 +726,7 @@
     const startHook = hookIndex;
     const element = component(...args);
     const endHook = hookIndex;
-    hooks[currentComponentHookCopy] = new ComponentContext(element, component, startHook, endHook);
+    hooks[currentComponentHookCopy] = new ComponentContext(element, currentComponentHookCopy, component, startHook, endHook);
     return element;
   }
   /**
