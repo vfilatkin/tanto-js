@@ -656,7 +656,7 @@
     }
   }
   /**
-   * Hooks API data
+   * Component hooks shared state data.
    */
   let hooks = [];
   let hookIndex = 0;
@@ -695,15 +695,23 @@
   }
 
   let HookType = {};
-
   (function(){
     let index = 1;
     function T(name){HookType[HookType[name] = ++index] = name;};
     T('ComponentContext');
-    T('State');
+    T('Public');
     /* ... */
   })();
 
+  /**
+   * Mounted component data.
+   * @param {number} index
+   * @param {function} component
+   * @param {Array} args
+   * @param {Element} element
+   * @param {number} startHook
+   * @param {number} endHook
+   */
   function ComponentContext(index, component, args, element, startHook, endHook){
     this.type = HookType.ComponentContext;
     this.index = index;
@@ -713,9 +721,13 @@
     this.startHook = startHook;
     this.endHook = endHook;
   };
-
-  function State(value){
-    this.type = HookType.State;
+  /** 
+   * Publicated state data.
+   * 
+   */
+  function Public(name, value){
+    this.type = HookType.PublicState;
+    this.name = name;
     this.value = value;
   };
 

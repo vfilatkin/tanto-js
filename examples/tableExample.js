@@ -9,10 +9,11 @@ const fetch$ = (url, delayTime = 3000, timeOut = 5000) => {
       }, ms)
     });
   }
-  const tableData = (length) => {
+  const tableData = (length, text) => {
+    text = text || '';
     let tableData = [];
     for (let index = 1; index <= length; index++) {
-      tableData.push({id: index, name: 'name' + index, value: 'value' + index})
+      tableData.push({id: index, name: 'name'+ text + index, value: 'value' + text + index})
     }
     return tableData;
   }
@@ -20,6 +21,10 @@ const fetch$ = (url, delayTime = 3000, timeOut = 5000) => {
     switch (url) {
       case 'api/table':
         return tableData(5);
+      case 'api/table?rows=10':
+          return tableData(10);
+      case 'api/table?filter=foo':
+        return tableData(5, 'foo');
     }
   }
 
@@ -41,7 +46,7 @@ const TableRow = rowData => {
   const renderRow = () => {
     for (const key in rowData) {
       const element = rowData[key];
-      t(TableCell, element);
+      TableCell(element);
     }
   }
   return (
@@ -56,12 +61,13 @@ const TableBody = tableData => {
     t('table'),
       t('tbody'),
         tableData.forEach(rowData => {
-          t(TableRow, rowData)
+          TableRow(rowData)
         }),
       t(),
     t()
   );
 }
+
 
 const TablePending = () => {
   return (
@@ -80,36 +86,23 @@ const TableError = () => {
 }
 
 const Table = api => {
-  let table;
   let [apiUrl, setApiUrl] = t.state(api);
   let [data, setData] = t.state(null);
-  
+
   const apiCall = api => {
-    table = TablePending();
     fetch$(api)
     .then(
-      tableData => {
-        t.outer(table, () => {
-          return TableBody(tableData);
-        })
-      }
-    )
-    .catch(
-      error => {
-        t.outer(table, () => {
-          return TableError(error);
-        })
-      }
+      tableData => setData(tableData)
     )
   }
+
   if(!data){
     apiCall(apiUrl);
+    return t(TablePending);
   } else {
-    table = TableBody(data);
+    return t(TableBody, data);
   }
-  return table;
 }
-
 
 const App = title => {
   return (
