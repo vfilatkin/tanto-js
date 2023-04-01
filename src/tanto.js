@@ -592,7 +592,7 @@
       return
     }
   }
-  //Push new command and navigate patcher
+  //Push new command and navigate patcher.
   function pushCommand(command, tagName, nodeType, nodeData, namespaceURI) {
     previousCommand = currentCommand;
     currentCommand = command;
@@ -603,7 +603,7 @@
     pushCommand(OPEN_NODE, tagName, nodeType, nodeData, namespaceURI);
     return currentNode;
   }
-  //Close node command
+  //Close node command.
   function closeNode() {
     var node = currentNode
     pushCommand(CLOSE_NODE);
@@ -633,7 +633,7 @@
     return node;
   }
   /**
-   * Creates a new text node or updates existing.
+   * Creates a new comment node or updates existing.
    * @example 
    * t.comment('foo');
    * @example
@@ -644,7 +644,7 @@
     return node;
   }
   /**
-   * Removes child nodes
+   * Removes child nodes.
    * @example 
    * t.clear();
    * @example
@@ -656,13 +656,73 @@
     }
   }
   /**
-   * Component hooks shared state data.
+   * Hooks data.
    */
-  let hooks = [];
-  let hookIndex = 0;
-  let currentComponentHook = 0;
-  let currentComponentMounting = false;
+  let hooks = [];                         /* Hooks store */
+  let hookIndex = 0;                      /* Current hook index */
+  let currentComponentHook = 0;           /* Current component hook index */
+  let currentComponentMounting = false;   /* Sets a mounting phase flag */
 
+  /* Component context internal ID */
+  const COMPONENT_CONTEXT = Symbol.for('ComponentContext');
+
+  /**
+   * Component internal data constructor.
+   * @param {number} index          Component hook index (self reference).
+   * @param {function} component    Component function.
+   * @param {array} args            Component arguments (props).
+   * @param {Element} element       Component root element.
+   * @param {number} startHook      First hook index. Component hook excluded.
+   * @param {number} endHook        Last hook index.
+   */
+  function ComponentContext(index, component, args, element, startHook, endHook){
+    this.type = COMPONENT_CONTEXT;
+    this.index = index;
+    this.component = component;
+    this.args = args;
+    this.element = element;
+    this.startHook = startHook;
+    this.endHook = endHook;
+  };
+
+  /**
+   * Resrves a place for component
+   * context data.
+   * @returns {number} current component index.
+   */
+  function reserveComponentContextHook(){
+    const hookIndexCopy = hookIndex;
+    hooks[hookIndexCopy] = null;
+    hookIndex++;
+    return hookIndexCopy;
+  }
+
+  /**
+   * Performs render and updates context.
+   * @param {ComponentContext} componentContext 
+   */
+  function updateContext(componentContext){
+    if(!componentContext || componentContext.type !== COMPONENT_CONTEXT) 
+      throw new Error('Cannot apply context');
+    const pHookIndex = hookIndex;
+    const pCurrentComponentHook = currentComponentHook;
+    hookIndex = componentContext.startHook;
+    currentComponentHook = componentContext.index;
+    componentContext.element = patchOuter(componentContext.element, function(){componentContext.component(...componentContext.args)});
+    hookIndex = pHookIndex;
+    currentComponentHook = pCurrentComponentHook;
+  }
+
+  /**
+   * Creates and updates component 
+   * inner state data and perorms render
+   * when data changes.
+   * @param {any} value initial state value.
+   * @returns {Array} an array wich contains value and setter function.
+   * @example 
+   * let [count, setCount] = t.state(123);
+   * @example
+   */
   function state(value){
     const hookIndexCopy = hookIndex;
     const currentComponentHookCopy = currentComponentHook;
@@ -675,68 +735,29 @@
     return [hooks[hookIndexCopy], setState]
   }
 
-  function EmptyHook(){
+  function effect(callback, dependencies){
     const hookIndexCopy = hookIndex;
-    hooks[hookIndexCopy] = null;
+    const hasNoDependencies = !dependencies;
+    const firstExecution = !hooks[hookIndexCopy];
+    const hasChanges = (
+      hooks[hookIndexCopy]?.some(function (d, i) {
+        return d !== dependencies[i]
+      })
+    );
+    let cleanUpFunction;
+    if(hasNoDependencies || firstExecution || hasChanges){
+      cleanUpFunction = callback();
+      hooks[hookIndexCopy] = dependencies;
+    }
     hookIndex++;
-    return hookIndexCopy;
+    return cleanUpFunction;
   }
-
-  function updateContext(componentContext){
-    if(!componentContext || componentContext.type !== HookType.ComponentContext) 
-      throw new Error('Cannot apply context');
-    const pHookIndex = hookIndex;
-    const pCurrentComponentHook = currentComponentHook;
-    hookIndex = componentContext.startHook;
-    currentComponentHook = componentContext.index;
-    patchOuter(componentContext.element, function(){componentContext.component(...componentContext.args)});
-    hookIndex = pHookIndex;
-    currentComponentHook = pCurrentComponentHook;
-  }
-
-  let HookType = {};
-  (function(){
-    let index = 1;
-    function T(name){HookType[HookType[name] = ++index] = name;};
-    T('ComponentContext');
-    T('Public');
-    /* ... */
-  })();
-
-  /**
-   * Mounted component data.
-   * @param {number} index
-   * @param {function} component
-   * @param {Array} args
-   * @param {Element} element
-   * @param {number} startHook
-   * @param {number} endHook
-   */
-  function ComponentContext(index, component, args, element, startHook, endHook){
-    this.type = HookType.ComponentContext;
-    this.index = index;
-    this.component = component;
-    this.args = args;
-    this.element = element;
-    this.startHook = startHook;
-    this.endHook = endHook;
-  };
-  /** 
-   * Publicated state data.
-   * 
-   */
-  function Public(name, value){
-    this.type = HookType.PublicState;
-    this.name = name;
-    this.value = value;
-  };
-
   /**
    * Component API.
    */
   function mount(component, ...args){
     currentComponentMounting = true;
-    currentComponentHook = EmptyHook(null);
+    currentComponentHook = reserveComponentContextHook(null);
     const currentComponentHookCopy = currentComponentHook;
     const startHook = hookIndex;
     const element = component(...args);
@@ -797,5 +818,6 @@
   t.route = route;
   t.router = router;
   t.state = state;
+  t.effect = effect;
   window.t = t;
 })();
