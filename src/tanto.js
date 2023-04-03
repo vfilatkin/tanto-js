@@ -662,6 +662,7 @@
   let hookIndex = 0;                      /* Current hook index */
   let currentComponentHook = 0;           /* Current component hook index */
   let currentComponentMounting = false;   /* Sets a mounting phase flag */
+  let currentComponentCleanups = null;    /* Component cleanup functions collection */
 
   /* Component context internal ID */
   const COMPONENT_CONTEXT = Symbol.for('ComponentContext');
@@ -675,7 +676,7 @@
    * @param {number} startHook      First hook index. Component hook excluded.
    * @param {number} endHook        Last hook index.
    */
-  function ComponentContext(index, component, args, element, startHook, endHook){
+  function ComponentContext(index, component, args, element, startHook, endHook, cleanups){
     this.type = COMPONENT_CONTEXT;
     this.index = index;
     this.component = component;
@@ -683,6 +684,7 @@
     this.element = element;
     this.startHook = startHook;
     this.endHook = endHook;
+    this.cleanups = cleanups;
   };
 
   /**
@@ -697,18 +699,25 @@
     return hookIndexCopy;
   }
 
+  function isComponentContext(object){
+    return object || object.type === COMPONENT_CONTEXT;
+  }
+
   /**
    * Performs render and updates context.
    * @param {ComponentContext} componentContext 
    */
   function updateContext(componentContext){
-    if(!componentContext || componentContext.type !== COMPONENT_CONTEXT) 
-      throw new Error('Cannot apply context');
+    if(!isComponentContext(componentContext))
+      throw new Error('Cannot apply component context')
     const pHookIndex = hookIndex;
     const pCurrentComponentHook = currentComponentHook;
     hookIndex = componentContext.startHook;
     currentComponentHook = componentContext.index;
+    currentComponentCleanups = [];
     componentContext.element = patchOuter(componentContext.element, function(){componentContext.component(...componentContext.args)});
+    componentContext.cleanups = currentComponentCleanups;
+    currentComponentCleanups = null;
     hookIndex = pHookIndex;
     currentComponentHook = pCurrentComponentHook;
   }
@@ -741,16 +750,16 @@
     const firstExecution = !hooks[hookIndexCopy];
     const hasChanges = (
       hooks[hookIndexCopy]?.some(function (d, i) {
-        return d !== dependencies[i]
+        return d !== dependencies[i];
       })
     );
-    let cleanUpFunction;
+    let cleanup = null;
     if(hasNoDependencies || firstExecution || hasChanges){
-      cleanUpFunction = callback();
+      cleanup = callback();
+      if(cleanup) currentComponentCleanups.push(cleanup);
       hooks[hookIndexCopy] = dependencies;
     }
     hookIndex++;
-    return cleanUpFunction;
   }
   /**
    * Component API.
@@ -759,10 +768,15 @@
     currentComponentMounting = true;
     currentComponentHook = reserveComponentContextHook(null);
     const currentComponentHookCopy = currentComponentHook;
+    const currentComponentContext =  hooks[currentComponentHookCopy];
+    // if(isComponentContext(currentComponentContext))
+    //   console.log(isComponentContext);
     const startHook = hookIndex;
+    currentComponentCleanups = [];
     const element = component(...args);
     const endHook = hookIndex;
-    hooks[currentComponentHookCopy] = new ComponentContext(currentComponentHookCopy, component, args, element, startHook, endHook);
+    hooks[currentComponentHookCopy] = new ComponentContext(currentComponentHookCopy, component, args, element, startHook, endHook, currentComponentCleanups);
+    currentComponentCleanups = null;
     currentComponentMounting = false;
     return element;
   }
