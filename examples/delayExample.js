@@ -6,7 +6,7 @@ const delay = fn => {
 
 const IntervalCounter = initialValue => {
   let [count, setCount] = t.state(initialValue);
-  delay(()=>{setCount(++count)})
+  delay(()=>{setCount(++count)});
 
   t.effect(()=>{
     console.log('Initial value ' + initialValue);
@@ -14,8 +14,12 @@ const IntervalCounter = initialValue => {
   
   t.effect(()=>{
     document.title = 'The count is ' + count;
+    console.log('part of the effect');
+    return () => {
+      console.log('part of cleanup');
+    }
   }, [count]);
-
+  console.log('part of the render');
   return (t('span'),t.text(`Count: ${count}`),t())
 
 }
