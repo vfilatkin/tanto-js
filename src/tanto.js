@@ -17,10 +17,12 @@
     console.error("[Warning]: " + message);
   }
 
+
+
   /**
    * Router module section
    */ 
-  let route, router;
+  var route, router;
   (function(){
     //Get URL parameters
     function getHashParameters(parameters) {
@@ -217,13 +219,15 @@
     }
   })();
 
+
+
   /**
    * The DOM Patcher.
    * 
    * Commands to track patcher movement. 
    * Represents opening or closing tags.
    */
-  let patch, patchOuter, openNode, closeNode, voidElement, textNode, commentNode, clearNode;
+  let patch, patchOuter, openNode, closeNode, voidElement, textNode, commentNode, clearNode, getDOMIndex;
   (function(){
     const 
       OPEN_NODE = 1,
@@ -237,6 +241,8 @@
      * patch() function.
      */
     var 
+        //DOM index of element
+        DOMIndex = 0,
         //Current patch entry point
         currentRootNode = null,
         //Current patcher namespace
@@ -291,6 +297,7 @@
         try{
           patcherFn(patchFn)
         } finally {
+          DOMIndex = 0,
           currentRootNode = pCurrentRootNode, 
           namespace = pNamespace, 
           previousCommand = pPreviousCommand, 
@@ -299,8 +306,7 @@
           currentNode = pCurrentNode, 
           previousNode = pPreviousNode, 
           patchRoot = pPatchRoot, 
-          patchParent = pPatchParent,
-          hookIndex = 0;
+          patchParent = pPatchParent;
         }
         return element;
       }
@@ -610,6 +616,7 @@
     }
     //Open node command
     openNode = function(tagName, nodeType, nodeData, namespaceURI) {
+      ++DOMIndex;
       pushCommand(OPEN_NODE, tagName, nodeType, nodeData, namespaceURI);
       return currentNode;
     }
@@ -665,132 +672,47 @@
         removeNodesFrom(node);
       }
     }
+    getDOMIndex = function() {
+      return DOMIndex;
+    }
   })();
-  /**
-   * Hooks data.
-   */
-  let hooks = [];                         /* Hooks store */
-  let hookIndex = 0;                      /* Current hook index */
-  let currentComponentHook = 0;           /* Current component hook index */
-  let currentComponentMounting = false;   /* Sets a mounting phase flag */
-  let currentComponentCleanups = null;    /* Component cleanup functions collection */
 
-  /* Component context internal ID */
-  const COMPONENT_CONTEXT = Symbol.for('ComponentContext');
+
 
   /**
-   * Component internal data constructor.
-   * @param {number} index          Component hook index (self reference).
-   * @param {function} component    Component function.
-   * @param {array} args            Component arguments (props).
-   * @param {Element} element       Component root element.
-   * @param {number} startHook      First hook index. Component hook excluded.
-   * @param {number} endHook        Last hook index.
+   * Component API module
    */
-  function ComponentContext(index, component, args, element, startHook, endHook, cleanups){
-    this.type = COMPONENT_CONTEXT;
-    this.index = index;
-    this.component = component;
-    this.args = args;
-    this.element = element;
-    this.startHook = startHook;
-    this.endHook = endHook;
-    this.cleanups = cleanups;
-  };
+  var mount, mountComponent, state;
+  (function(){
 
-  /**
-   * Resrves a place for component
-   * context data.
-   * @returns {number} current component index.
-   */
-  function reserveComponentContextHook(){
-    const hookIndexCopy = hookIndex;
-    hooks[hookIndexCopy] = null;
-    hookIndex++;
-    return hookIndexCopy;
-  }
-
-  function isComponentContext(object){
-    return object || object.type === COMPONENT_CONTEXT;
-  }
-
-  /**
-   * Performs render and updates context.
-   * @param {ComponentContext} componentContext 
-   */
-  function updateContext(componentContext){
-    if(!isComponentContext(componentContext))
-      throw new Error('Cannot apply component context')
-    const pHookIndex = hookIndex;
-    const pCurrentComponentHook = currentComponentHook;
-    hookIndex = componentContext.startHook;
-    currentComponentHook = componentContext.index;
-    currentComponentCleanups = [];
-    componentContext.element = patchOuter(componentContext.element, function(){componentContext.component(...componentContext.args)});
-    componentContext.cleanups = currentComponentCleanups;
-    currentComponentCleanups = null;
-    hookIndex = pHookIndex;
-    currentComponentHook = pCurrentComponentHook;
-  }
-
-  /**
-   * Creates and updates component 
-   * inner state data and perorms render
-   * when data changes.
-   * @param {any} value initial state value.
-   * @returns {Array} an array wich contains value and setter function.
-   * @example 
-   * let [count, setCount] = t.state(123);
-   * @example
-   */
-  function state(value){
-    const hookIndexCopy = hookIndex;
-    const currentComponentHookCopy = currentComponentHook;
-    hooks[hookIndexCopy] = currentComponentMounting? value : hooks[hookIndexCopy];
-    function setState(newValue){
-      hooks[hookIndexCopy] = newValue;
-      updateContext(hooks[currentComponentHookCopy]);
+    function createComponentInstance(component, props, element){
+      return {
+        index: getDOMIndex(),
+        element: element,
+        component: component,
+        props: props,
+        state: [],
+        children: []
+      }
     }
-    hookIndex++;
-    return [hooks[hookIndexCopy], setState]
-  }
 
-  function effect(callback, dependencies){
-    const hookIndexCopy = hookIndex;
-    const hasNoDependencies = !dependencies;
-    const firstExecution = !hooks[hookIndexCopy];
-    const hasChanges = (
-      hooks[hookIndexCopy]?.some(function (d, i) {
-        return d !== dependencies[i];
+    mountComponent = function(component, ...props){
+      const element = component(...props);
+      return element;
+    }
+
+    state = function(value){
+      return [value, function(){}]
+    }
+
+    mount = function(rootSelector, component, ...props){
+      ready(function () {
+        patch(document.querySelector(rootSelector), function(){
+          mountComponent(component, ...props);
+        })
       })
-    );
-    let cleanup = null;
-    if(hasNoDependencies || firstExecution || hasChanges){
-      cleanup = callback();
-      if(cleanup) currentComponentCleanups.push(cleanup);
-      hooks[hookIndexCopy] = dependencies;
     }
-    hookIndex++;
-  }
-  /**
-   * Component API.
-   */
-  function mount(component, ...args){
-    currentComponentMounting = true;
-    currentComponentHook = reserveComponentContextHook(null);
-    const currentComponentHookCopy = currentComponentHook;
-    const currentComponentContext =  hooks[currentComponentHookCopy];
-    // if(isComponentContext(currentComponentContext))
-    //   console.log(isComponentContext);
-    const startHook = hookIndex;
-    currentComponentCleanups = [];
-    const element = component(...args);
-    const endHook = hookIndex;
-    hooks[currentComponentHookCopy] = new ComponentContext(currentComponentHookCopy, component, args, element, startHook, endHook, currentComponentCleanups);
-    currentComponentCleanups = null;
-    currentComponentMounting = false;
-    return element;
-  }
+  })();
   /**
    * Manipulates patcher movement through DOM-tree nodes of an element.
    * Performs 'in-place' diffing of the node.
@@ -828,7 +750,7 @@
         return openNode(type, Node.ELEMENT_NODE, ...args)
       //Mount component
       if (typeof type === 'function') {
-        return mount(type, ...args)
+        return mountComponent(type, ...args)
       }
     }
   }
@@ -842,7 +764,7 @@
   t.clear = clearNode;
   t.route = route;
   t.router = router;
+  t.mount = mount;
   t.state = state;
-  t.effect = effect;
   window.t = t;
 })();

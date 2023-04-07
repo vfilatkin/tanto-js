@@ -113,8 +113,4 @@ const App = title => {
   );
 }
 
-t.ready(() => {
-  t.patch(document.getElementById('app'), () => {
-    t(App, 'This is async table example')
-  })
-})
+t.mount('#app', App, 'This is async table example')
