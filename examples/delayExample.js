@@ -21,20 +21,27 @@ const IntervalCounter = initialValue => {
   }, [count]);
   console.log('part of the render');
   return (t('span'),t.text(`Count: ${count}`),t())
-
 }
 
 const App = title => {
+  let [visible, setVisible] = t.state(true);
+  const counterVisibility = () => {
+    setVisible(!visible);
+  }
   return (
-    t('div'),
+    (visible? 
+    (t('div'),
       t.text(title),t.void('br'),
       t(IntervalCounter, 0),
-    t()
+    t()) :
+    (t('div'),
+      t.text(title),t.void('br'),
+      t.text('...'),
+    t())),
+    (t('button', {'onclick': counterVisibility}),
+    t('span'),t.text(visible? 'hide counter': 'show counter'),t(),
+    t())
   );
 }
 
-t.ready(() => {
-  t.patch(document.getElementById('app'), () => {
-    t(App, 'This is a timeout counter example')
-  })
-})
+t.mount('#app', App, 'This is a timeout counter example')

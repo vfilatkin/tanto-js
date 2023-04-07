@@ -40,9 +40,4 @@ const App = title => {
   );
 }
 
-t.ready(() => {
-  t.patch(document.getElementById('app'), () => {
-    t(App, 'This is a input component validation example')
-  })
-})
-
+t.mount('#app', App, 'This is a input component validation example.')
