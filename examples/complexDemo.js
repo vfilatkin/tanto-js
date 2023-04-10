@@ -16,7 +16,7 @@ const Input = (initialValue, validator) => {
       'value': initialValue,
       'onchange': handleChange
     }),
-    (valid ? t.text('  \u2713') : t.text('  \u2717')),
+    (valid() ? t.text('  \u2713') : t.text('  \u2717')),
     t()
   );
 }
@@ -63,7 +63,7 @@ const Tabs = tabs => {
         }),
       t(),
       t('div'),
-        t(TabView, tabs[currentTab].view),
+        t(TabView, tabs[currentTab()].view),
       t(),
     t()
   );

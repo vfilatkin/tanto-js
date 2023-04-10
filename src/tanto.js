@@ -241,26 +241,26 @@
      * patch() function.
      */
     var 
-        //DOM index of element
-        DOMIndex = 0,
-        //Current patch entry point
-        currentRootNode = null,
-        //Current patcher namespace
-        namespace = null,
-        //Previous tracked command.
-        previousCommand = null,
-        //Current tracked command.
-        currentCommand = null,
-        //Current node type (equal to Node.nodeType)
-        currentNodeType = null,
-        //Current node in DOM-tree.
-        currentNode = null,
-        //Previous node in DOM-tree.
-        previousNode = null,
-        //Created patch. Will be attached after it is comleted.
-        patchRoot = null,
-        //Parent for created patch.
-        patchParent = null;
+      //DOM index of element
+      DOMIndex = 0,
+      //Current patch entry point
+      currentRootNode = null,
+      //Current patcher namespace
+      namespace = null,
+      //Previous tracked command.
+      previousCommand = null,
+      //Current tracked command.
+      currentCommand = null,
+      //Current node type (equal to Node.nodeType)
+      currentNodeType = null,
+      //Current node in DOM-tree.
+      currentNode = null,
+      //Previous node in DOM-tree.
+      previousNode = null,
+      //Created patch. Will be attached after it is comleted.
+      patchRoot = null,
+      //Parent for created patch.
+      patchParent = null;
     /**
      * Patches elements of DOM-tree
      * @param {element} element - Entry element of patch.
@@ -618,6 +618,7 @@
     openNode = function(tagName, nodeType, nodeData, namespaceURI) {
       ++DOMIndex;
       pushCommand(OPEN_NODE, tagName, nodeType, nodeData, namespaceURI);
+      // console.log(currentNode, nodeType);
       return currentNode;
     }
     //Close node command.
@@ -678,31 +679,46 @@
   })();
 
 
+  /**
+   * Component state module
+   */
+  var state, effect;
+  (function(){
+    function State(value){
+      this.value = value;
+      this.sources = null;
+      this.observers = null;
+    }
+
+    state = function (value){
+      let _state = new State(value);
+      return [
+        /* Declare getter */
+        function () {
+          console.log(_state);
+          return _state.value;
+        },
+        /* Declare setter */
+        function (value) {
+          _state.value = value;
+          console.log(_state);
+          return _state.value;
+        }
+      ]
+    }
+  })();
+
+
 
   /**
    * Component API module
    */
-  var mount, mountComponent, state;
+  var mount, mountComponent;
   (function(){
-
-    function createComponentInstance(component, props, element){
-      return {
-        index: getDOMIndex(),
-        element: element,
-        component: component,
-        props: props,
-        state: [],
-        children: []
-      }
-    }
 
     mountComponent = function(component, ...props){
       const element = component(...props);
       return element;
-    }
-
-    state = function(value){
-      return [value, function(){}]
     }
 
     mount = function(rootSelector, component, ...props){
