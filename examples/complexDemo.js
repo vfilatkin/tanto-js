@@ -1,6 +1,6 @@
 const Input = (initialValue, validator) => {
   let [valid, setValid] = t.state(validator(initialValue));
-
+  let [value, setValue] = t.state(initialValue);
   const handleChange = event => {
     let inputValue = event.target.value;
     if (validator(inputValue)) {
@@ -9,12 +9,20 @@ const Input = (initialValue, validator) => {
       setValid(false)
     }
   }
+  t.effect(() => {
+    //console.log(valid() && valid() && valid());
+    if (valid())
+      console.log(value());
+  })
 
+  t.effect(() => {
+    console.log(valid() + " #2");
+  })
   return (
     t('div'),
     t.void('input', {
       'value': initialValue,
-      'onchange': handleChange
+      'oninput': handleChange
     }),
     (valid() ? t.text('  \u2713') : t.text('  \u2717')),
     t()
@@ -57,14 +65,14 @@ const Tabs = tabs => {
   let [currentTab, setCurrentTab] = t.state(0);
   return (
     t('div'),
-      t('div'),
-        tabs.forEach((tab,i) => {
-          t(TabButton, tab.title, () => { setCurrentTab(i); })
-        }),
-      t(),
-      t('div'),
-        t(TabView, tabs[currentTab()].view),
-      t(),
+    t('div'),
+    tabs.forEach((tab, i) => {
+      t(TabButton, tab.title, () => { setCurrentTab(i); })
+    }),
+    t(),
+    t('div'),
+    t(TabView, tabs[currentTab()].view),
+    t(),
     t()
   );
 }
@@ -85,14 +93,14 @@ const App = title => {
             t(Input, 10, value => { return value >= 0 }),
             t(Input, 10, value => { return value >= 0 }),
             t(Button, 'OK'),
-          t()
+            t()
         }),
         Tab('Buttons', () => {
           t('div'),
             t.text('Buttons demo...'),
             t(Button, 'OK'),
             t(Button, 'Cancel'),
-          t()
+            t()
         }),
         Tab('Text', () => {
           t.text('Just text...')

@@ -1,5 +1,5 @@
 //Core library
-(function() {
+(function () {
   'use strict'
   /**
    * Perform callback when document is ready
@@ -21,14 +21,14 @@
 
   /**
    * Router module section
-   */ 
+   */
   var route, router;
-  (function(){
+  (function () {
     //Get URL parameters
     function getHashParameters(parameters) {
       var array = parameters.split(/\&/),
         params = {};
-      array.forEach(function(parameter) {
+      array.forEach(function (parameter) {
         parameter = parameter.split(/\=/);
         params[parameter[0]] = parameter[1];
       });
@@ -113,9 +113,9 @@
       if (typeof route.action !== "function") {
         route.action.view(
           route.action.data ? route.action.data() : {}, {
-            pathData: route.pathData || {},
-            pathParams: route.pathParams || {}
-          }
+          pathData: route.pathData || {},
+          pathParams: route.pathParams || {}
+        }
         );
       } else {
         route.action({}, {
@@ -204,15 +204,15 @@
      * @param {string} default 
      * @param {array} routes 
      */
-    router = function(options) {
+    router = function (options) {
       options = arguments.length > 1 ?
         makeRouterOptions(arguments) :
         options;
       if (!validateRouterOptions(options))
         throw "[Error]: Application must be object";
-      ready(function() {
+      ready(function () {
         handleHashChange(options.routes, options.default);
-        window.onhashchange = function() {
+        window.onhashchange = function () {
           handleHashChange(options.routes, options.default);
         }
       });
@@ -228,8 +228,8 @@
    * Represents opening or closing tags.
    */
   let patch, patchOuter, openNode, closeNode, voidElement, textNode, commentNode, clearNode, getDOMIndex;
-  (function(){
-    const 
+  (function () {
+    const
       OPEN_NODE = 1,
       CLOSE_NODE = 2;
     /**
@@ -240,7 +240,7 @@
      * It helps to perform nested calls of 
      * patch() function.
      */
-    var 
+    var
       //DOM index of element
       DOMIndex = 0,
       //Current patch entry point
@@ -268,13 +268,13 @@
      * @param {string} namespaceURI - Patch initial namespace
      * @returns {element} - Returns patched element.
      */
-    function Patcher(patcherFn){
+    function Patcher(patcherFn) {
       return function (element, patchFn, namespaceURI) {
         /*
           * Preserve patcher context and restore 
           * it after patching is done
           */
-        var 
+        var
           pCurrentRootNode = currentRootNode,
           pNamespace = namespace,
           pPreviousCommand = previousCommand,
@@ -285,42 +285,42 @@
           pPatchRoot = patchRoot,
           pPatchParent = patchParent;
         //Setup new patch context copy
-        currentRootNode = element, 
-        namespace = namespaceURI ? { node: element, URI: namespaceURI } : null, 
-        previousCommand = null, 
-        currentCommand = OPEN_NODE, 
-        currentNode = element,
-        currentNodeType = element.nodeType,
-        previousNode = null, 
-        patchRoot = null, 
-        patchParent = null;
-        try{
+        currentRootNode = element,
+          namespace = namespaceURI ? { node: element, URI: namespaceURI } : null,
+          previousCommand = null,
+          currentCommand = OPEN_NODE,
+          currentNode = element,
+          currentNodeType = element.nodeType,
+          previousNode = null,
+          patchRoot = null,
+          patchParent = null;
+        try {
           patcherFn(patchFn)
         } finally {
           DOMIndex = 0,
-          currentRootNode = pCurrentRootNode, 
-          namespace = pNamespace, 
-          previousCommand = pPreviousCommand, 
-          currentCommand = pCurrentCommand, 
-          currentNodeType = pCurrentNodeType,
-          currentNode = pCurrentNode, 
-          previousNode = pPreviousNode, 
-          patchRoot = pPatchRoot, 
-          patchParent = pPatchParent;
+            currentRootNode = pCurrentRootNode,
+            namespace = pNamespace,
+            previousCommand = pPreviousCommand,
+            currentCommand = pCurrentCommand,
+            currentNodeType = pCurrentNodeType,
+            currentNode = pCurrentNode,
+            previousNode = pPreviousNode,
+            patchRoot = pPatchRoot,
+            patchParent = pPatchParent;
         }
         return element;
       }
     }
     //Inner patcher
-    patch = Patcher(function(patchFn){
+    patch = Patcher(function (patchFn) {
       currentNode = currentRootNode;
       let element = patchFn();
       removeUnopened();
       return element;
     })
     //Patch element outerHTML
-    patchOuter = Patcher(function(patchFn){
-      currentNode = {firstChild : currentNode};
+    patchOuter = Patcher(function (patchFn) {
+      currentNode = { firstChild: currentNode };
       return patchFn();
     })
     //True if same tag
@@ -328,29 +328,29 @@
       return tag1.toLowerCase() === tag2.toLowerCase();
     }
     //Patch node style
-    function updateStyle(node, style){
-      if(typeof style === 'function')
+    function updateStyle(node, style) {
+      if (typeof style === 'function')
         style = style()
-      switch(typeof style){
+      switch (typeof style) {
         case 'string':
           node.style = style
           break;
         case 'object':
           node.style = ''
-          for(let key in style){
-            node.style.setProperty(key, style[key]) 
+          for (let key in style) {
+            node.style.setProperty(key, style[key])
           }
           break;
-      } 
+      }
     }
     //Returns two arrays. First contains used keys, second contains unused.
-    function diffKeys(aKeys, bKeys){
-      var 
-          used = [], 
-          unused = [];
-      aKeys.forEach(function(aKey){
+    function diffKeys(aKeys, bKeys) {
+      var
+        used = [],
+        unused = [];
+      aKeys.forEach(function (aKey) {
         var index = bKeys.indexOf(aKey);
-        if(index === -1){
+        if (index === -1) {
           unused.push(aKey)
         } else {
           used.push(aKey)
@@ -359,14 +359,14 @@
       return [used, unused]
     }
     //Returns the keys and flag of the operation needed to resolve the differences.
-    function diffObjectKeys(aObj, bObj){
-      var 
+    function diffObjectKeys(aObj, bObj) {
+      var
         flag,
         used,
         unused,
         aKeys = Object.keys(aObj),
         bKeys = Object.keys(bObj);
-      if(aKeys.length >= bKeys.length){
+      if (aKeys.length >= bKeys.length) {
         //The difference is negative. Need to delete keys.
         [used, unused] = diffKeys(aKeys, bKeys)
         flag = false
@@ -378,8 +378,8 @@
       return [flag, used, unused]
     }
     //Get array of node's current attributes
-    function getNodeCurrentAttributes(node){
-      var 
+    function getNodeCurrentAttributes(node) {
+      var
         currentAttributes = {},
         attributes = node.attributes;
       for (let attribute of attributes) {
@@ -387,23 +387,23 @@
       }
       return currentAttributes;
     }
-    function setNodeAttribute(node, name, value){
-      if(name === 'style'){
+    function setNodeAttribute(node, name, value) {
+      if (name === 'style') {
         updateStyle(node, value);
         return;
       }
-      if(typeof value === 'function'){
+      if (typeof value === 'function') {
         node[name] = value
         return
       }
       node.setAttribute(name, value)
     }
-    function removeNodeAttribute(node, name){
+    function removeNodeAttribute(node, name) {
       node.removeAttribute(name)
     }
     //Update node attributes
-    function updateNodeAttributes(node, keys, newAttributes, updateFn){
-      keys.forEach(function(key) {
+    function updateNodeAttributes(node, keys, newAttributes, updateFn) {
+      keys.forEach(function (key) {
         updateFn(node, key, newAttributes[key])
       });
     }
@@ -413,11 +413,11 @@
       var oldAttributes = getNodeCurrentAttributes(node);
       var [flag, used, unused] = diffObjectKeys(oldAttributes, newAttributes)
       updateNodeAttributes(node, used, newAttributes, setNodeAttribute)
-      if(flag){
+      if (flag) {
         updateNodeAttributes(node, unused, newAttributes, setNodeAttribute)
       } else {
         updateNodeAttributes(node, unused, newAttributes, removeNodeAttribute)
-      } 
+      }
     }
     //Set patcher namespace data
     function setPatcherNamespace(namespaceURI) {
@@ -454,7 +454,7 @@
       return newNode;
     }
     //Remove child nodes
-    function removeChildNodes(node){
+    function removeChildNodes(node) {
       while (node.firstChild) {
         node.removeChild(node.lastChild);
       }
@@ -510,17 +510,17 @@
      * It can be an issue when hydrating SSR markup
      * with human readable formatting because of CR or LF.
      */
-    function updateNode(tagName, nodeType, nodeData){
-      if(currentNode.nodeType === nodeType){
+    function updateNode(tagName, nodeType, nodeData) {
+      if (currentNode.nodeType === nodeType) {
         /**
         * Update nodes of the same nodeType.
         * Element node can be replaced if new tagName 
         * different. For non-element nodes only
         * text content will be changed.
         */
-        switch(currentNode.nodeType){
+        switch (currentNode.nodeType) {
           case Node.ELEMENT_NODE:
-            if(!isSameTag(currentNode.tagName, tagName)){
+            if (!isSameTag(currentNode.tagName, tagName)) {
               currentNode = replaceNode(currentNode, createElementNode(tagName));
             }
             assignElementAttributes(currentNode, nodeData)
@@ -531,11 +531,11 @@
             return
         }
       } else {
-        switch(nodeType){
+        switch (nodeType) {
           case Node.ELEMENT_NODE:
             currentNode = replaceNode(currentNode, createElementNode(tagName));
             assignElementAttributes(currentNode, nodeData)
-            return 
+            return
           case Node.TEXT_NODE:
             currentNode = replaceNode(currentNode, document.createTextNode(nodeData));
             return
@@ -555,8 +555,8 @@
        * New element is completed when command is CLOSE
        * and current element is patch root.
       */
-      if(!node){
-        switch(nodeType){
+      if (!node) {
+        switch (nodeType) {
           case Node.ELEMENT_NODE:
             currentNode = buildPatch(currentNode, createElementNode(tagName));
             assignElementAttributes(currentNode, nodeData)
@@ -596,7 +596,7 @@
       if (
         previousCommand == OPEN_NODE &&
         currentCommand == CLOSE_NODE
-        ) {
+      ) {
         removeChildNodes(currentNode);
         exitNode();
         return
@@ -615,18 +615,18 @@
       moveToNextNode(tagName, nodeType, nodeData, namespaceURI)
     }
     //Open node command
-    openNode = function(tagName, nodeType, nodeData, namespaceURI) {
+    openNode = function (tagName, nodeType, nodeData, namespaceURI) {
       ++DOMIndex;
       pushCommand(OPEN_NODE, tagName, nodeType, nodeData, namespaceURI);
       // console.log(currentNode, nodeType);
       return currentNode;
     }
     //Close node command.
-    closeNode = function() {
+    closeNode = function () {
       var node = currentNode;
       pushCommand(CLOSE_NODE);
       return node;
-    } 
+    }
     /**
      * Self-closing element.
      * @param {string} text
@@ -634,7 +634,7 @@
      * t.void('input');
      * @example
      */
-    voidElement = function(tagName, nodeData, namespaceURI) {
+    voidElement = function (tagName, nodeData, namespaceURI) {
       var node = openNode(tagName, Node.ELEMENT_NODE, nodeData, namespaceURI);
       closeNode();
       return node;
@@ -645,7 +645,7 @@
      * t.text('foo');
      * @example
      */
-    textNode = function(value) {
+    textNode = function (value) {
       var node = openNode(null, Node.TEXT_NODE, value);
       closeNode();
       return node;
@@ -656,7 +656,7 @@
      * t.comment('foo');
      * @example
      */
-    commentNode = function(value) {
+    commentNode = function (value) {
       var node = openNode(null, Node.COMMENT_NODE, value);
       closeNode();
       return node;
@@ -667,44 +667,104 @@
      * t.clear();
      * @example
      */
-    clearNode = function() {
+    clearNode = function () {
       var node = currentNode.firstChild;
       if (node) {
         removeNodesFrom(node);
       }
     }
-    getDOMIndex = function() {
+    getDOMIndex = function () {
       return DOMIndex;
     }
   })();
 
 
   /**
-   * Component state module
+   * Component state module.
    */
   var state, effect;
-  (function(){
-    function State(value){
+  (function () {
+    let
+      Effect = null,
+      NewEffect = null;
+    /* New state object */
+    function State(value) {
       this.value = value;
-      this.sources = null;
       this.observers = null;
     }
-
-    state = function (value){
-      let _state = new State(value);
+    /* Expose state context */
+    function subscribeNewEffect(stateContext) {
+      if (!NewEffect) return;
+      NewEffect.getters.push(stateContext);
+    }
+    /* Do nothing if getter already declared 
+     * (called multiple times in effect). */
+    function updateStateEffects(getter, effectCallback) {
+      if (getter.observers.indexOf(effectCallback) < 0)
+        getter.observers.push(effectCallback);
+    }
+    /* Update new effect observed state */
+    function updateNewEffectSubscriptions() {
+      if (!NewEffect) return;
+      NewEffect.getters.forEach(function (getter) {
+        if (!getter.observers)
+          getter.observers = [];
+        updateStateEffects(getter, NewEffect.callback)
+      });
+    }
+    /* Check if effect is already subscribed */
+    function isSubscribed(stateContext) {
+      if (!stateContext.observers) return;
+      return stateContext.observers.some(
+        function (observer) {
+          return observer === Effect;
+        }
+      );
+    }
+    /* Updates existing effect subscriptions */
+    function updateEffectSubscriptions(stateContext) {
+      if (!NewEffect && Effect) {
+        if (!isSubscribed(stateContext)) {
+          if (!stateContext.observers)
+            stateContext.observers = [];
+          stateContext.observers.push(Effect)
+        }
+      }
+    }
+    /* Call observers (effects) */
+    function callObservers(stateContext) {
+      stateContext.observers.forEach(function (observer) {
+        Effect = observer;
+        observer();
+      });
+    }
+    /* Create new state */
+    state = function (value) {
+      let stateContext = new State(value);
       return [
         /* Declare getter */
         function () {
-          console.log(_state);
-          return _state.value;
+          subscribeNewEffect(stateContext);
+          updateEffectSubscriptions(stateContext);
+          return stateContext.value;
         },
         /* Declare setter */
         function (value) {
-          _state.value = value;
-          console.log(_state);
-          return _state.value;
+          stateContext.value = value;
+          callObservers(stateContext);
+          return stateContext.value;
         }
       ]
+    }
+    /* Create new effect */
+    effect = function (callback) {
+      NewEffect = {
+        getters: [],
+        callback: callback
+      }
+      callback();
+      updateNewEffectSubscriptions()
+      NewEffect = null;
     }
   })();
 
@@ -714,16 +774,16 @@
    * Component API module
    */
   var mount, mountComponent;
-  (function(){
+  (function () {
 
-    mountComponent = function(component, ...props){
+    mountComponent = function (component, ...props) {
       const element = component(...props);
       return element;
     }
 
-    mount = function(rootSelector, component, ...props){
+    mount = function (rootSelector, component, ...props) {
       ready(function () {
-        patch(document.querySelector(rootSelector), function(){
+        patch(document.querySelector(rootSelector), function () {
           mountComponent(component, ...props);
         })
       })
@@ -782,5 +842,6 @@
   t.router = router;
   t.mount = mount;
   t.state = state;
+  t.effect = effect;
   window.t = t;
 })();
