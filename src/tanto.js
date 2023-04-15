@@ -734,7 +734,6 @@
     }
     /* Call observers (effects) */
     function callObservers(stateContext) {
-      console.log(stateContext);
       stateContext.observers.forEach(function (observer) {
         CurrentEffect = observer;
         observer.callback();
