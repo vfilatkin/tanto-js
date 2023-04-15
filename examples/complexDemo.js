@@ -10,7 +10,6 @@ const Input = (initialValue, validator) => {
     }
   }
   t.effect(() => {
-    //console.log(valid() && valid() && valid());
     if (valid())
       console.log(value());
   })

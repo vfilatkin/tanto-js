@@ -685,57 +685,59 @@
   var state, effect;
   (function () {
     let
-      Effect = null,
+      CurrentEffect = null,
       NewEffect = null;
     /* New state object */
     function State(value) {
       this.value = value;
-      this.observers = null;
+      this.observers = [];
+    }
+    function Effect(callback) {
+      this.callback = callback;
+      this.sources = [];
     }
     /* Expose state context */
     function subscribeNewEffect(stateContext) {
       if (!NewEffect) return;
-      NewEffect.getters.push(stateContext);
+      NewEffect.sources.push(stateContext);
     }
     /* Do nothing if getter already declared 
      * (called multiple times in effect). */
-    function updateStateEffects(getter, effectCallback) {
-      if (getter.observers.indexOf(effectCallback) < 0)
-        getter.observers.push(effectCallback);
+    function updateStateObservers(stateContext, stateObserver) {
+      if (stateContext.observers.indexOf(stateObserver) < 0)
+      stateContext.observers.push(stateObserver);
     }
     /* Update new effect observed state */
     function updateNewEffectSubscriptions() {
       if (!NewEffect) return;
-      NewEffect.getters.forEach(function (getter) {
-        if (!getter.observers)
-          getter.observers = [];
-        updateStateEffects(getter, NewEffect.callback)
+      NewEffect.sources.forEach(function (stateContext) {
+        updateStateObservers(stateContext, NewEffect)
       });
     }
     /* Check if effect is already subscribed */
     function isSubscribed(stateContext) {
-      if (!stateContext.observers) return;
+      if (stateContext.observers.length === 0) return;
       return stateContext.observers.some(
         function (observer) {
-          return observer === Effect;
+          return observer === CurrentEffect;
         }
       );
     }
     /* Updates existing effect subscriptions */
     function updateEffectSubscriptions(stateContext) {
-      if (!NewEffect && Effect) {
+      if (!NewEffect && CurrentEffect) {
         if (!isSubscribed(stateContext)) {
-          if (!stateContext.observers)
-            stateContext.observers = [];
-          stateContext.observers.push(Effect)
+          stateContext.observers.push(CurrentEffect)
+          CurrentEffect.sources.push(stateContext)
         }
       }
     }
     /* Call observers (effects) */
     function callObservers(stateContext) {
+      console.log(stateContext);
       stateContext.observers.forEach(function (observer) {
-        Effect = observer;
-        observer();
+        CurrentEffect = observer;
+        observer.callback();
       });
     }
     /* Create new state */
@@ -758,11 +760,8 @@
     }
     /* Create new effect */
     effect = function (callback) {
-      NewEffect = {
-        getters: [],
-        callback: callback
-      }
-      callback();
+      NewEffect = new Effect(callback)
+      NewEffect.callback();
       updateNewEffectSubscriptions()
       NewEffect = null;
     }
