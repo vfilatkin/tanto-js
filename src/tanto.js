@@ -766,13 +766,14 @@
     }
     /* Create new render effect */
     createRenderEffect = function (callback) {
+      let pNewEffect = NewEffect;
       NewEffect = new Effect();
       let element = callback();
       NewEffect.callback = function() {
         patchOuter(element, callback);
       }
       updateNewEffectSubscriptions();
-      NewEffect = null;
+      NewEffect = pNewEffect;
       return element;
     }
   })();

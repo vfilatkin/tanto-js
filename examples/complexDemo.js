@@ -76,21 +76,37 @@ const Tabs = tabs => {
   );
 }
 
-const WithRenderEffect = (text) => {
+const RenderEffect = (text) => {
+  let [count, setCount] = t.state(0);
+  const handleClick = () => {
+    setCount(count() + 1);
+  }
+  return () => (
+    t('div'),
+      t('button', {'onclick': handleClick} ),
+        t.text(text + ' ' + count()),
+      t(),
+      t(RenderEffectPart, 'RenderEffectPart'),
+    t()
+  )
+}
+
+const RenderEffectPart = (text) => {
   let [count, setCount] = t.state(0);
   const handleClick = () => {
     setCount(count() + 1);
   }
   return () => (
     t('button', {'onclick': handleClick} ),
-      t.text(text + ' ' + count()),
+      t.text('PART ' + text + ' ' + count()),
     t()
   )
 }
 
+
 const App = title => {
   return (
-    t(WithRenderEffect, 'WithRenderEffect'),
+    t(RenderEffect, 'RenderEffect'),
     t('div'), t.text(title), t(),
     t(Tabs,
       [
