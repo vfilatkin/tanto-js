@@ -682,7 +682,7 @@
   /**
    * Component state module.
    */
-  var state, effect;
+  var state, effect, createRenderEffect;
   (function () {
     let
       CurrentEffect = null,
@@ -761,8 +761,19 @@
     effect = function (callback) {
       NewEffect = new Effect(callback)
       NewEffect.callback();
-      updateNewEffectSubscriptions()
+      updateNewEffectSubscriptions();
       NewEffect = null;
+    }
+    /* Create new render effect */
+    createRenderEffect = function (callback) {
+      NewEffect = new Effect();
+      let element = callback();
+      NewEffect.callback = function() {
+        patchOuter(element, callback);
+      }
+      updateNewEffectSubscriptions();
+      NewEffect = null;
+      return element;
     }
   })();
 
@@ -774,9 +785,12 @@
   var mount, mountComponent;
   (function () {
 
-    mountComponent = function (component, ...props) {
-      const element = component(...props);
-      return element;
+    mountComponent = function (componentFunction, ...props) {
+      let component = componentFunction(...props);
+      if(typeof component === 'function'){
+        component = createRenderEffect(component);
+      }
+      return component;
     }
 
     mount = function (rootSelector, component, ...props) {
