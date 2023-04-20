@@ -175,7 +175,6 @@
     function handleHashChange(routes, defaultRoute) {
       var validRoute = resolveRoute(window.location.hash, routes),
         defaultRoute = resolveRoute(defaultRoute, routes);
-      console.log(window.location.hash);
       if (validRoute) {
         applyRoute(validRoute);
       } else {
@@ -705,7 +704,7 @@
      * (called multiple times in effect). */
     function updateStateObservers(stateContext, stateObserver) {
       if (stateContext.observers.indexOf(stateObserver) < 0)
-      stateContext.observers.push(stateObserver);
+        stateContext.observers.push(stateObserver);
     }
     /* Update new effect observed state */
     function updateNewEffectSubscriptions() {
@@ -766,10 +765,12 @@
     }
     /* Create new render effect */
     createRenderEffect = function (callback) {
+      let pCurrentEffect = CurrentEffect;
+      CurrentEffect = null;
       let pNewEffect = NewEffect;
       NewEffect = new Effect();
       let element = callback();
-      NewEffect.callback = function() {
+      NewEffect.callback = function () {
         patchOuter(element, callback);
       }
       updateNewEffectSubscriptions();
@@ -788,7 +789,7 @@
 
     mountComponent = function (componentFunction, ...props) {
       let component = componentFunction(...props);
-      if(typeof component === 'function'){
+      if (typeof component === 'function') {
         component = createRenderEffect(component);
       }
       return component;
