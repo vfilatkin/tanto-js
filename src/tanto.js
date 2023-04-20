@@ -734,8 +734,12 @@
     /* Call observers (effects) */
     function callObservers(stateContext) {
       stateContext.observers.forEach(function (observer) {
+        let pCurrentEffect = CurrentEffect;
+        let pNewEffect = NewEffect;
         CurrentEffect = observer;
         observer.callback();
+        CurrentEffect = pCurrentEffect;
+        NewEffect = pNewEffect;
       });
     }
     /* Create new state */
@@ -758,22 +762,28 @@
     }
     /* Create new effect */
     effect = function (callback) {
-      NewEffect = new Effect(callback)
-      NewEffect.callback();
+      let pCurrentEffect = CurrentEffect;
+      let pNewEffect = NewEffect;
+      CurrentEffect = null;
+      NewEffect = new Effect();
+      callback();
+      NewEffect.callback = callback;
       updateNewEffectSubscriptions();
-      NewEffect = null;
+      CurrentEffect = pCurrentEffect;
+      NewEffect = pNewEffect;
     }
     /* Create new render effect */
     createRenderEffect = function (callback) {
       let pCurrentEffect = CurrentEffect;
-      CurrentEffect = null;
       let pNewEffect = NewEffect;
+      CurrentEffect = null;
       NewEffect = new Effect();
       let element = callback();
       NewEffect.callback = function () {
         patchOuter(element, callback);
       }
       updateNewEffectSubscriptions();
+      CurrentEffect = pCurrentEffect;
       NewEffect = pNewEffect;
       return element;
     }

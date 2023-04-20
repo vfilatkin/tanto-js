@@ -14,9 +14,9 @@ const Input = (initialValue, validator) => {
       console.log(value());
   })
 
-  t.effect(() => {
-    console.log(valid() + " #2");
-  })
+  //t.effect(() => {
+  //  console.log(valid() + " #2");
+  //})
   return (
     t('div'),
     t.void('input', {
@@ -46,9 +46,7 @@ const Tab = (title, view) => {
 }
 
 const TabView = (view) => {
-  return (
-    view()
-  );
+  return view();
 }
 
 const Button = text => {
@@ -62,7 +60,7 @@ const Button = text => {
 
 const Tabs = tabs => {
   let [currentTab, setCurrentTab] = t.state(0);
-  return (
+  return () => (
     t('div'),
     t('div'),
     tabs.forEach((tab, i) => {
@@ -87,6 +85,7 @@ const RenderEffect = (text) => {
         t.text(text + ' ' + count()),
       t(),
       t(RenderEffectPart, 'RenderEffectPart'),
+      t(RenderEffectPart, 'RenderEffectPart'),
     t()
   )
 }
@@ -98,7 +97,7 @@ const RenderEffectPart = (text) => {
   }
   return () => (
     t('button', {'onclick': handleClick} ),
-      t.text('PART ' + text + ' ' + count()),
+      t.text(text + ' ' + count()),
     t()
   )
 }
