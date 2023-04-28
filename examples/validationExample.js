@@ -1,22 +1,22 @@
 const Input = (initialValue, validator) => {
-  let [valid, setValid] = t.state(validator(initialValue));
+  let valid = t.signal(validator(initialValue));
 
   const handleChange = event => {
     let inputValue = event.target.value;
-    if(validator(inputValue)){
-      setValid(true)
+    if (validator(inputValue)) {
+      valid.$ = true;
     } else {
-      setValid(false)
+      valid.$ = false;
     }
   }
 
-  return (
+  return () => (
     t('div'),
       t.void('input', {
         'value': initialValue, 
         'onchange': handleChange
       }),
-      (valid? t.text('  \u2713'): t.text('  \u2717')),
+      (valid.$? t.text('  \u2713'): t.text('  \u2717')),
     t()
   );
 }

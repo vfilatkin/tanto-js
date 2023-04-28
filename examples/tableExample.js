@@ -86,22 +86,25 @@ const TableError = () => {
 }
 
 const Table = api => {
-  let [apiUrl, setApiUrl] = t.state(api);
-  let [data, setData] = t.state(null);
+  let apiUrl = t.signal(api);
+  let data = t.signal(null);
 
   const apiCall = api => {
     fetch$(api)
     .then(
-      tableData => setData(tableData)
+      tableData => data.$ = tableData
     )
   }
+  
+  apiCall(apiUrl.$);
 
-  if(!data){
-    apiCall(apiUrl);
-    return t(TablePending);
-  } else {
-    return t(TableBody, data);
-  }
+  return () => {
+    if(!data.$){
+      return t(TablePending);
+    } else {
+      return t(TableBody, data.$)
+    }
+  };
 }
 
 const App = title => {
@@ -113,4 +116,4 @@ const App = title => {
   );
 }
 
-t.mount('#app', App, 'This is async table example')
+t.mount('#app', App, 'This is async table example');

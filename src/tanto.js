@@ -680,7 +680,7 @@
   /**
    * Component state module.
    */
-  var state, effect, computed, createRenderEffect;
+  var signal, effect, computed, createRenderEffect;
   (function () {
     let
       CurrentEffect = null;
@@ -732,7 +732,7 @@
       });
     }
     /* Create new state */
-    state = function (value) {
+    signal = function (value) {
       return new State(value);
     }
     /* Create new effect */
@@ -833,7 +833,7 @@
   t.route = route;
   t.router = router;
   t.mount = mount;
-  t.state = state;
+  t.signal = signal;
   t.effect = effect;
   window.t = t;
 })();

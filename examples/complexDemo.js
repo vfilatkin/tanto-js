@@ -1,6 +1,6 @@
 const Input = (initialValue, validator) => {
-  let valid = t.state(validator(initialValue));
-  let value = t.state(initialValue);
+  let valid = t.signal(validator(initialValue));
+  let value = t.signal(initialValue);
   const handleChange = event => {
     let inputValue = event.target.value;
     if (validator(inputValue)) {
@@ -17,7 +17,7 @@ const Input = (initialValue, validator) => {
   t.effect(() => {
    console.log(valid.$ + " #2");
   })
-  return (
+  return () => (
     t('div'),
     t.void('input', {
       'value': initialValue,
@@ -50,7 +50,7 @@ const TabView = (view) => {
 }
 
 const Button = text => {
-  let active = t.state(true);
+  let active = t.signal(true);
   return (
     t('button'),
     t.text(text),
@@ -59,7 +59,7 @@ const Button = text => {
 }
 
 const Tabs = tabs => {
-  let currentTab = t.state(0);
+  let currentTab = t.signal(0);
   return () => (
     t('div'),
     t('div'),
@@ -75,7 +75,7 @@ const Tabs = tabs => {
 }
 
 const RenderEffect = (text) => {
-  let count = t.state(0);
+  let count = t.signal(0);
   const handleClick = () => {
     count.$ += 1;
   }
@@ -91,7 +91,7 @@ const RenderEffect = (text) => {
 }
 
 const RenderEffectPart = (text) => {
-  let count = t.state(0);
+  let count = t.signal(0);
   const handleClick = () => {
     count.$ += 1;
   }

@@ -5,31 +5,19 @@ const delay = fn => {
 }
 
 const IntervalCounter = initialValue => {
-  let [count, setCount] = t.state(initialValue);
-  delay(()=>{setCount(++count)});
-
-  t.effect(()=>{
-    console.log('Initial value ' + initialValue);
-  },[]);
+  let count = t.signal(initialValue);
+  delay(()=>{++count.$});
   
-  t.effect(()=>{
-    document.title = 'The count is ' + count;
-    console.log('part of the effect');
-    return () => {
-      console.log('part of cleanup');
-    }
-  }, [count]);
-  console.log('part of the render');
-  return (t('span'),t.text(`Count: ${count}`),t())
+  return ()=> {t('span'),t.text(`Count: ${count.$}`),t()};
 }
 
 const App = title => {
-  let [visible, setVisible] = t.state(true);
+  let visible = t.signal(true);
   const counterVisibility = () => {
-    setVisible(!visible);
+    !visible.$;
   }
-  return (
-    (visible? 
+  return () =>(
+    (visible.$? 
     (t('div'),
       t.text(title),t.void('br'),
       t(IntervalCounter, 0),
@@ -39,7 +27,7 @@ const App = title => {
       t.text('...'),
     t())),
     (t('button', {'onclick': counterVisibility}),
-    t('span'),t.text(visible? 'hide counter': 'show counter'),t(),
+    t('span'),t.text(visible.$? 'hide counter': 'show counter'),t(),
     t())
   );
 }

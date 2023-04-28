@@ -1,35 +1,36 @@
 const Counter = initialCount => {
-  let [count, setCount] = t.state(initialCount);
-  let [hitLimit, setHitLimit] = t.state(false);
+  let count = t.signal(initialCount);
+  let hitLimit = t.signal(false);
 
   const handleClick = () => {
-    setCount(++count);
-    if(count === 10) setHitLimit(true);
+    count.$++;
+    if(count.$ === 10) hitLimit.$ = true;
   }
 
-  return (
+  return () => (
     t('div'),
       t('button', {'onclick': handleClick}),
-        t('span'),t.text(`Clicked ${count}`),t(),
+        t('span'),t.text(`Clicked ${count.$}`),t(),
       t(),
-      (hitLimit? t.text('Limit reached!!!'): null),
+      (hitLimit.$? t.text('Limit reached!!!'): null),
     t()
   );
 }
 
 const App = title => {
-  let [renderCount, setRenderCount] = t.state(1);
+  console.log(t);
+  let renderCount = t.signal(1);
 
   const handleClick = () => {
-    setRenderCount(++renderCount);
+    renderCount.$++;
   }
 
-  return (
+  return () => (
     t('div'),
       t('div'),
         t.text(title),
         t.void('br'),
-        t.text(`Rendered ${renderCount} times`),
+        t.text(`Rendered ${renderCount.$} times`),
       t(),
       t(Counter, 3),
       t(Counter, 5),
@@ -41,9 +42,5 @@ const App = title => {
   );
 }
 
-t.ready(() => {
-  t.patch(document.getElementById('app'), () => {
-    t(App, 'This is a counter example')
-  })
-})
+t.mount('#app', App, 'This is a counter example')
 
