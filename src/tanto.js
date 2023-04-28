@@ -680,7 +680,7 @@
   /**
    * Component state module.
    */
-  var state, effect, createRenderEffect;
+  var state, effect, computed, createRenderEffect;
   (function () {
     let
       CurrentEffect = null;
@@ -689,6 +689,17 @@
       this.value = value;
       this.observers = [];
     }
+    Object.defineProperty(State.prototype, "$",{
+      get(){
+        updateEffectSubscriptions(this);
+        return this.value;
+      },
+      set(value){
+        this.value = value;
+        callObservers(this);
+        return this.value;
+      }
+    });
     function Effect(callback) {
       this.callback = callback;
       this.sources = [];

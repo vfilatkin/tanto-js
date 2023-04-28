@@ -14,9 +14,9 @@ const Input = (initialValue, validator) => {
       console.log(value());
   })
 
-  //t.effect(() => {
-  //  console.log(valid() + " #2");
-  //})
+  t.effect(() => {
+   console.log(valid() + " #2");
+  })
   return (
     t('div'),
     t.void('input', {
