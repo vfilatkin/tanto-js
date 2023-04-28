@@ -1,21 +1,21 @@
 const Input = (initialValue, validator) => {
-  let [valid, setValid] = t.state(validator(initialValue));
-  let [value, setValue] = t.state(initialValue);
+  let valid = t.state(validator(initialValue));
+  let value = t.state(initialValue);
   const handleChange = event => {
     let inputValue = event.target.value;
     if (validator(inputValue)) {
-      setValid(true)
+      valid.$ = true;
     } else {
-      setValid(false)
+      valid.$ = false;
     }
   }
   t.effect(() => {
-    if (valid())
-      console.log(value());
+    if (valid.$)
+      console.log(value.$);
   })
 
   t.effect(() => {
-   console.log(valid() + " #2");
+   console.log(valid.$ + " #2");
   })
   return (
     t('div'),
@@ -23,7 +23,7 @@ const Input = (initialValue, validator) => {
       'value': initialValue,
       'oninput': handleChange
     }),
-    (valid() ? t.text('  \u2713') : t.text('  \u2717')),
+    (valid.$ ? t.text('  \u2713') : t.text('  \u2717')),
     t()
   );
 }
@@ -50,7 +50,7 @@ const TabView = (view) => {
 }
 
 const Button = text => {
-  let [active, setActive] = t.state(true);
+  let active = t.state(true);
   return (
     t('button'),
     t.text(text),
@@ -59,30 +59,30 @@ const Button = text => {
 }
 
 const Tabs = tabs => {
-  let [currentTab, setCurrentTab] = t.state(0);
+  let currentTab = t.state(0);
   return () => (
     t('div'),
     t('div'),
     tabs.forEach((tab, i) => {
-      t(TabButton, tab.title, () => { setCurrentTab(i); })
+      t(TabButton, tab.title, () => { currentTab.$ = i; })
     }),
     t(),
     t('div'),
-    t(TabView, tabs[currentTab()].view),
+    t(TabView, tabs[currentTab.$].view),
     t(),
     t()
   );
 }
 
 const RenderEffect = (text) => {
-  let [count, setCount] = t.state(0);
+  let count = t.state(0);
   const handleClick = () => {
-    setCount(count() + 1);
+    count.$ += 1;
   }
   return () => (
     t('div'),
       t('button', {'onclick': handleClick} ),
-        t.text(text + ' ' + count()),
+        t.text(text + ' ' + count.$),
       t(),
       t(RenderEffectPart, 'RenderEffectPart'),
       t(RenderEffectPart, 'RenderEffectPart'),
@@ -91,13 +91,13 @@ const RenderEffect = (text) => {
 }
 
 const RenderEffectPart = (text) => {
-  let [count, setCount] = t.state(0);
+  let count = t.state(0);
   const handleClick = () => {
-    setCount(count() + 1);
+    count.$ += 1;
   }
   return () => (
     t('button', {'onclick': handleClick} ),
-      t.text(text + ' ' + count()),
+      t.text(text + ' ' + count.$),
     t()
   )
 }

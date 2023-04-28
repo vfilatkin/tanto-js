@@ -733,20 +733,7 @@
     }
     /* Create new state */
     state = function (value) {
-      let stateContext = new State(value);
-      return [
-        /* Declare getter */
-        function () {
-          updateEffectSubscriptions(stateContext);
-          return stateContext.value;
-        },
-        /* Declare setter */
-        function (value) {
-          stateContext.value = value;
-          callObservers(stateContext);
-          return stateContext.value;
-        }
-      ]
+      return new State(value);
     }
     /* Create new effect */
     effect = function (callback) {
