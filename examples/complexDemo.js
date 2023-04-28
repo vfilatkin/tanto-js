@@ -1,7 +1,7 @@
 const Input = (initialValue, validator) => {
   let valid = t.signal(validator(initialValue));
   let value = t.signal(initialValue);
-  const handleChange = event => {
+  const handleInput = event => {
     let inputValue = event.target.value;
     if (validator(inputValue)) {
       valid.$ = true;
@@ -21,7 +21,7 @@ const Input = (initialValue, validator) => {
     t('div'),
     t.void('input', {
       'value': initialValue,
-      'oninput': handleChange
+      'oninput': handleInput
     }),
     (valid.$ ? t.text('  \u2713') : t.text('  \u2717')),
     t()
