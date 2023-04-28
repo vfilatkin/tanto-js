@@ -617,7 +617,6 @@
     openNode = function (tagName, nodeType, nodeData, namespaceURI) {
       ++DOMIndex;
       pushCommand(OPEN_NODE, tagName, nodeType, nodeData, namespaceURI);
-      // console.log(currentNode, nodeType);
       return currentNode;
     }
     //Close node command.
@@ -684,8 +683,7 @@
   var state, effect, createRenderEffect;
   (function () {
     let
-      CurrentEffect = null,
-      NewEffect = null;
+      CurrentEffect = null;
     /* New state object */
     function State(value) {
       this.value = value;
@@ -694,24 +692,6 @@
     function Effect(callback) {
       this.callback = callback;
       this.sources = [];
-    }
-    /* Expose state context */
-    function subscribeNewEffect(stateContext) {
-      if (!NewEffect) return;
-      NewEffect.sources.push(stateContext);
-    }
-    /* Do nothing if getter already declared 
-     * (called multiple times in effect). */
-    function updateStateObservers(stateContext, stateObserver) {
-      if (stateContext.observers.indexOf(stateObserver) < 0)
-        stateContext.observers.push(stateObserver);
-    }
-    /* Update new effect observed state */
-    function updateNewEffectSubscriptions() {
-      if (!NewEffect) return;
-      NewEffect.sources.forEach(function (stateContext) {
-        updateStateObservers(stateContext, NewEffect)
-      });
     }
     /* Check if effect is already subscribed */
     function isSubscribed(stateContext) {
@@ -724,7 +704,7 @@
     }
     /* Updates existing effect subscriptions */
     function updateEffectSubscriptions(stateContext) {
-      if (!NewEffect && CurrentEffect) {
+      if (CurrentEffect) {
         if (!isSubscribed(stateContext)) {
           stateContext.observers.push(CurrentEffect)
           CurrentEffect.sources.push(stateContext)
@@ -735,11 +715,9 @@
     function callObservers(stateContext) {
       stateContext.observers.forEach(function (observer) {
         let pCurrentEffect = CurrentEffect;
-        let pNewEffect = NewEffect;
         CurrentEffect = observer;
         observer.callback();
         CurrentEffect = pCurrentEffect;
-        NewEffect = pNewEffect;
       });
     }
     /* Create new state */
@@ -748,7 +726,6 @@
       return [
         /* Declare getter */
         function () {
-          subscribeNewEffect(stateContext);
           updateEffectSubscriptions(stateContext);
           return stateContext.value;
         },
@@ -763,28 +740,21 @@
     /* Create new effect */
     effect = function (callback) {
       let pCurrentEffect = CurrentEffect;
-      let pNewEffect = NewEffect;
       CurrentEffect = null;
-      NewEffect = new Effect();
+      CurrentEffect = new Effect();
       callback();
-      NewEffect.callback = callback;
-      updateNewEffectSubscriptions();
+      CurrentEffect.callback = callback;
       CurrentEffect = pCurrentEffect;
-      NewEffect = pNewEffect;
     }
     /* Create new render effect */
     createRenderEffect = function (callback) {
       let pCurrentEffect = CurrentEffect;
-      let pNewEffect = NewEffect;
-      CurrentEffect = null;
-      NewEffect = new Effect();
+      CurrentEffect = new Effect();
       let element = callback();
-      NewEffect.callback = function () {
+      CurrentEffect.callback = function () {
         patchOuter(element, callback);
       }
-      updateNewEffectSubscriptions();
       CurrentEffect = pCurrentEffect;
-      NewEffect = pNewEffect;
       return element;
     }
   })();
