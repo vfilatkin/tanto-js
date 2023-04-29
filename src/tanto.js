@@ -17,8 +17,6 @@
     console.error("[Warning]: " + message);
   }
 
-
-
   /**
    * Router module section
    */
@@ -682,10 +680,10 @@
    */
   var signal, effect, computed, createRenderEffect;
   (function () {
-    let
-      CurrentEffect = null;
-    /* New state object */
+    let CurrentEffect = null;
+    /* State object */
     function State(value) {
+      this.parent = null;
       this.value = value;
       this.observers = [];
     }
@@ -700,7 +698,10 @@
         return this.value;
       }
     });
+    /* Effect object */
     function Effect(callback) {
+      this.parent = null;
+      this.children = [];
       this.callback = callback;
       this.sources = [];
     }
@@ -733,13 +734,18 @@
     }
     /* Create new state */
     signal = function (value) {
-      return new State(value);
+      let _state = new State(value);
+      _state.parent = CurrentEffect;
+      return _state;
     }
     /* Create new effect */
     effect = function (callback) {
       let pCurrentEffect = CurrentEffect;
       CurrentEffect = null;
       CurrentEffect = new Effect();
+      CurrentEffect.parent = pCurrentEffect;
+      if(pCurrentEffect)
+        pCurrentEffect.children.push(CurrentEffect)
       callback();
       CurrentEffect.callback = callback;
       CurrentEffect = pCurrentEffect;
@@ -748,6 +754,9 @@
     createRenderEffect = function (callback) {
       let pCurrentEffect = CurrentEffect;
       CurrentEffect = new Effect();
+      CurrentEffect.parent = pCurrentEffect;
+      if(pCurrentEffect)
+        pCurrentEffect.children.push(CurrentEffect)
       let element = callback();
       CurrentEffect.callback = function () {
         patchOuter(element, callback);

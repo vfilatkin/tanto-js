@@ -18,7 +18,6 @@ const Counter = initialCount => {
 }
 
 const App = title => {
-  console.log(t);
   let renderCount = t.signal(1);
 
   const handleClick = () => {

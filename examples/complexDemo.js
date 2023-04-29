@@ -15,7 +15,7 @@ const Input = (initialValue, validator) => {
   })
 
   t.effect(() => {
-   console.log(valid.$ + " #2");
+    console.log(valid.$ + " #2");
   })
   return () => (
     t('div'),
