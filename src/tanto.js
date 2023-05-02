@@ -717,6 +717,7 @@
     /* Updates existing effect subscriptions */
     function updateEffectSubscriptions(stateContext) {
       if (CurrentEffect) {
+        // if(!CurrentEffect.callback) console.log(stateContext);
         if (!isSubscribed(stateContext)) {
           stateContext.observers.push(CurrentEffect)
           CurrentEffect.sources.push(stateContext)
