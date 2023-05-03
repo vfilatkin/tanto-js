@@ -678,92 +678,130 @@
   /**
    * Component state module.
    */
-  var signal, effect, computed, createRenderEffect;
+  var signal, computed, effect;
   (function () {
-    let CurrentEffect = null;
-    /* State object */
-    function State(value) {
-      this.parent = null;
+    /* Effect & computed state flags */
+    const
+      STALE = 1 << 0,
+      RUNNING = 1 << 1;
+    /* Globlas */
+    let 
+      currentContext = null,
+      effectQueue = [];
+
+    /* Signal */
+    const SIGNAL_OPTIONS = {equal: true};
+    function Signal(value, options) {
       this.value = value;
       this.observers = [];
+      this.options = options || SIGNAL_OPTIONS;
     }
-    Object.defineProperty(State.prototype, "$",{
+    Object.defineProperty(Signal.prototype, "$",{
       get(){
-        updateEffectSubscriptions(this);
+        if(currentContext)
+          this.subscribe(currentContext);
         return this.value;
       },
-      set(value){
-        this.value = value;
-        callObservers(this);
+      set(newValue){
+        if(this.value === newValue && this.options.equal)
+          return this.value;
+        this.value = newValue;
+        this.notify();
+        runEffects();
         return this.value;
       }
     });
-    /* Effect object */
-    function Effect(callback) {
-      this.parent = null;
-      this.children = [];
-      this.callback = callback;
-      this.sources = [];
+    Signal.prototype.subscribe = function(observer){
+      if(!this.observers.includes(observer))
+        this.observers.push(observer);
     }
-    /* Check if effect is already subscribed */
-    function isSubscribed(stateContext) {
-      if (stateContext.observers.length === 0) return;
-      return stateContext.observers.some(
-        function (observer) {
-          return observer === CurrentEffect;
-        }
-      );
-    }
-    /* Updates existing effect subscriptions */
-    function updateEffectSubscriptions(stateContext) {
-      if (CurrentEffect) {
-        // if(!CurrentEffect.callback) console.log(stateContext);
-        if (!isSubscribed(stateContext)) {
-          stateContext.observers.push(CurrentEffect)
-          CurrentEffect.sources.push(stateContext)
-        }
+    Signal.prototype.notify = function(){
+      for(let observerIndex = 0; observerIndex < this.observers.length; observerIndex++){
+        this.observers[observerIndex].notify();
       }
     }
-    /* Call observers (effects) */
-    function callObservers(stateContext) {
-      stateContext.observers.forEach(function (observer) {
-        let pCurrentEffect = CurrentEffect;
-        CurrentEffect = observer;
-        observer.callback();
-        CurrentEffect = pCurrentEffect;
-      });
+
+    /* Effect */
+    const EFFECT_OPTIONS = {defer: false};
+    function Effect(callback, options) {
+      this.callback = callback;
+      this.flags = STALE;
+      this.options = options || EFFECT_OPTIONS;
+      this.run();
+    }
+    Effect.prototype.run = function (){
+      if(this.flags & RUNNING)
+        throw new Error("Loop detected");
+      if(this.flags & STALE) {
+          this.flags |= RUNNING;
+          currentContext = this;
+          this.callback();
+          this.flags &= ~RUNNING;
+          currentContext = null;
+      }
+      this.flags &= ~STALE;
+    }
+    Effect.prototype.notify = function (){
+      if(!this.flags & STALE) {
+          this.flags |= STALE;
+          effectQueue.push(this);
+      }
+    }
+    function runEffects(){
+      for(let effectIndex = 0; effectIndex < effectQueue.length; effectIndex++){
+        effectQueue[effectIndex].run();
+      }
+      effectQueue.length = 0;
+    }
+
+    /* Computed */
+    function Computed(callback){
+      this.callback = callback;
+      this.value = undefined;
+      this.flags = STALE;
+      this.observers = [];
+    }
+    Object.defineProperty(Computed.prototype, "$",{
+      get(){
+        if(this.flags & STALE){
+          const pContext = currentContext;
+          currentContext = this;
+          this.refresh();
+          currentContext = pContext;
+        }
+        if(currentContext){
+          this.subscribe(currentContext);
+        }
+        return this.value;
+      }
+    });
+    Computed.prototype.refresh = function(){
+      this.value = this.callback();
+      this.flags &= ~STALE;
+    }
+    Computed.prototype.subscribe = function(observer){
+      if(!this.observers.includes(observer))
+        this.observers.push(observer);
+    }
+    Computed.prototype.notify = function (){
+      if(!this.flags & STALE) {
+          this.flags |= STALE;
+          for(let observerIndex = 0; observerIndex < this.observers.length; observerIndex++){
+            this.observers[observerIndex].notify();
+          }
+      }
     }
     /* Create new state */
-    signal = function (value) {
-      let _state = new State(value);
-      _state.parent = CurrentEffect;
-      return _state;
+    signal = function (value, options) {
+      return new Signal(value, options);
     }
     /* Create new effect */
-    effect = function (callback) {
-      let pCurrentEffect = CurrentEffect;
-      CurrentEffect = null;
-      CurrentEffect = new Effect();
-      CurrentEffect.parent = pCurrentEffect;
-      if(pCurrentEffect)
-        pCurrentEffect.children.push(CurrentEffect)
-      callback();
-      CurrentEffect.callback = callback;
-      CurrentEffect = pCurrentEffect;
+    effect = function (callback, options) {
+      return new Effect(callback, options);
     }
-    /* Create new render effect */
-    createRenderEffect = function (callback) {
-      let pCurrentEffect = CurrentEffect;
-      CurrentEffect = new Effect();
-      CurrentEffect.parent = pCurrentEffect;
-      if(pCurrentEffect)
-        pCurrentEffect.children.push(CurrentEffect)
-      let element = callback();
-      CurrentEffect.callback = function () {
-        patchOuter(element, callback);
-      }
-      CurrentEffect = pCurrentEffect;
-      return element;
+    /* Create new computed */
+    computed = function (callback) {
+      return new Computed(callback);
     }
   })();
 
@@ -774,7 +812,15 @@
    */
   var mount, mountComponent;
   (function () {
-
+    /* Create new render effect */
+    function createRenderEffect(callback) {
+      let element = callback();
+      effect(function () {
+        patchOuter(element, callback);
+      });
+      return element;
+    }
+    /* Mount component */
     mountComponent = function (componentFunction, ...props) {
       let component = componentFunction(...props);
       if (typeof component === 'function') {
@@ -845,5 +891,6 @@
   t.mount = mount;
   t.signal = signal;
   t.effect = effect;
+  t.computed = computed;
   window.t = t;
 })();
