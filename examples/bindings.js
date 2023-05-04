@@ -7,12 +7,21 @@ const Counter = initialCount => {
     if(count.$ === 10) hitLimit.$ = true;
   }
 
-  return () => (
+  function disableOnLimit() {
+    if (hitLimit.$) this.setAttribute('disabled', '');
+  }
+
+  return (
     t('div'),
-      t('button', {'onclick': handleClick}),
-        t('span'),t.text(`Clicked ${count.$}`),t(),
+      t.comment(count),
+      t('button'),
+        t.on('click', handleClick),
+        t.bind(disableOnLimit),
+        t('span'),
+          t.text(`Clicked `),
+          t.text(count),
+        t(),
       t(),
-      (hitLimit.$? t.text('Limit reached!!!'): null),
     t()
   );
 }

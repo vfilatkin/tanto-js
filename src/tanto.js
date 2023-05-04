@@ -224,7 +224,22 @@
    * Commands to track patcher movement. 
    * Represents opening or closing tags.
    */
-  let patch, patchOuter, openNode, closeNode, voidElement, textNode, commentNode, clearNode, getDOMIndex;
+  let
+    patch,
+    patchOuter,
+    openNode,
+    closeNode,
+    voidElement,
+    textNode,
+    commentNode,
+    clearNode,
+    getDOMIndex,
+    getPreviousNode,
+    getCurrentNode,
+    setCurrentNodeAttribute,
+    setCurrentNodeListener,
+    setCurrentNodeBinding;
+
   (function () {
     const
       OPEN_NODE = 1,
@@ -635,16 +650,21 @@
       closeNode();
       return node;
     }
+    /* Creates an effect for text binding. */
+    function textContentBinding(binding) {
+      setCurrentNodeBinding(function () {
+        this.textContent = binding.$;
+      });
+    }
     /**
      * Creates a new text node or updates existing.
      * @example 
      * t.text('foo');
      * @example
      */
+
     textNode = function (value) {
-      var node = openNode(null, Node.TEXT_NODE, value);
-      closeNode();
-      return node;
+      return TEXT_NODE_HANLDER(value);
     }
     /**
      * Creates a new comment node or updates existing.
@@ -653,9 +673,7 @@
      * @example
      */
     commentNode = function (value) {
-      var node = openNode(null, Node.COMMENT_NODE, value);
-      closeNode();
-      return node;
+      return COMMENT_NODE_HANLDER(value);
     }
     /**
      * Removes child nodes.
@@ -669,126 +687,194 @@
         removeNodesFrom(node);
       }
     }
+    /* Get current DOM index. */
     getDOMIndex = function () {
       return DOMIndex;
     }
+    /* Get current DOM index. */
+    getPreviousNode = function () {
+      return previousNode;
+    }
+    /* Set current node attribute. */
+    setCurrentNodeAttribute = function (name, value) {
+      if(namespace)
+        currentNode.setAttributeNS(name, value);
+      else
+        currentNode.setAttribute(name, value);
+    }
+    /* Set current node event listener. */
+    setCurrentNodeListener = function (name, callback, options) {
+      currentNode.addEventListener(name, callback, options);
+    }
+    /* Returns true if object is instance of signal. */
+    function isBinding(data) {
+      return data instanceof signalInstance;
+    }
+    /* Resolves text content binding */
+    function createNodeTextContentHandler(nodeType) {
+      return function (value) {
+        let node;
+        if (!isBinding(value)) {
+          node = openNode(null, nodeType, value);
+          closeNode();
+          return node;
+        }
+        node = openNode(null, nodeType, '');
+        textContentBinding(value);
+        closeNode();
+        return node;
+      }
+    }
+    /* Primitive text content bindings. */
+    const
+      TEXT_NODE_HANLDER = createNodeTextContentHandler(Node.TEXT_NODE),
+      COMMENT_NODE_HANLDER = createNodeTextContentHandler(Node.COMMENT_NODE);
+    /* Set current node bindings */
+    setCurrentNodeBinding = function (callback) {
+      let _currentNode = currentNode;
+      effect(function () {
+        let pCurrentNode = currentNode;
+        currentNode = _currentNode;
+        callback.call(_currentNode);
+        currentNode = pCurrentNode;
+      });
+    }
+    /* 
+     * Retruns current node context. 
+     * Used in arrow functions instead of 'this'.
+     */
+    getCurrentNode = function () {
+      return currentNode;
+    }
   })();
+
 
 
   /**
    * Component state module.
    */
-  var signal, computed, effect;
+  var signal, computed, effect, signalInstance;
   (function () {
     /* Effect & computed state flags */
     const
       STALE = 1 << 0,
       RUNNING = 1 << 1;
     /* Globlas */
-    let 
+    let
       currentContext = null,
       effectQueue = [];
 
     /* Signal */
-    const SIGNAL_OPTIONS = {equal: true};
+    const SIGNAL_OPTIONS = { equal: true };
     function Signal(value, options) {
-      this.value = value;
+      this._value = value;
       this.observers = [];
       this.options = options || SIGNAL_OPTIONS;
     }
-    Object.defineProperty(Signal.prototype, "$",{
-      get(){
-        if(currentContext)
+    signalInstance = Signal;
+    Object.defineProperty(Signal.prototype, "$", {
+      get() {
+        if (currentContext)
           this.subscribe(currentContext);
-        return this.value;
+        return this._value;
       },
-      set(newValue){
-        if(this.value === newValue && this.options.equal)
-          return this.value;
-        this.value = newValue;
+      set(newValue) {
+        if (this._value === newValue && this.options.equal)
+          return this._value;
+        this._value = newValue;
         this.notify();
         runEffects();
-        return this.value;
+        return this._value;
       }
     });
-    Signal.prototype.subscribe = function(observer){
-      if(!this.observers.includes(observer))
+    Object.defineProperty(Signal.prototype, "value", {
+      get() {
+        return this._value;
+      },
+      set(newValue) {
+        this._value = newValue;
+        return this._value;
+      }
+    });
+    Signal.prototype.subscribe = function (observer) {
+      if (!this.observers.includes(observer))
         this.observers.push(observer);
     }
-    Signal.prototype.notify = function(){
-      for(let observerIndex = 0; observerIndex < this.observers.length; observerIndex++){
+    Signal.prototype.notify = function () {
+      for (let observerIndex = 0; observerIndex < this.observers.length; observerIndex++) {
         this.observers[observerIndex].notify();
       }
     }
 
     /* Effect */
-    const EFFECT_OPTIONS = {defer: false};
+    const EFFECT_OPTIONS = { defer: false };
     function Effect(callback, options) {
       this.callback = callback;
       this.flags = STALE;
       this.options = options || EFFECT_OPTIONS;
       this.run();
     }
-    Effect.prototype.run = function (){
-      if(this.flags & RUNNING)
+    Effect.prototype.run = function () {
+      if (this.flags & RUNNING)
         throw new Error("Loop detected");
-      if(this.flags & STALE) {
-          this.flags |= RUNNING;
-          currentContext = this;
-          this.callback();
-          this.flags &= ~RUNNING;
-          currentContext = null;
+      if (this.flags & STALE) {
+        this.flags |= RUNNING;
+        let pContext = currentContext;
+        currentContext = this;
+        this.callback();
+        this.flags &= ~RUNNING;
+        currentContext = pContext;
       }
       this.flags &= ~STALE;
     }
-    Effect.prototype.notify = function (){
-      if(!this.flags & STALE) {
-          this.flags |= STALE;
-          effectQueue.push(this);
+    Effect.prototype.notify = function () {
+      if (!this.flags & STALE) {
+        this.flags |= STALE;
+        effectQueue.push(this);
       }
     }
-    function runEffects(){
-      for(let effectIndex = 0; effectIndex < effectQueue.length; effectIndex++){
+    function runEffects() {
+      for (let effectIndex = 0; effectIndex < effectQueue.length; effectIndex++) {
         effectQueue[effectIndex].run();
       }
       effectQueue.length = 0;
     }
 
     /* Computed */
-    function Computed(callback){
+    function Computed(callback) {
       this.callback = callback;
-      this.value = undefined;
+      this._value = undefined;
       this.flags = STALE;
       this.observers = [];
     }
-    Object.defineProperty(Computed.prototype, "$",{
-      get(){
-        if(this.flags & STALE){
+    Object.defineProperty(Computed.prototype, "$", {
+      get() {
+        if (this.flags & STALE) {
           const pContext = currentContext;
           currentContext = this;
           this.refresh();
           currentContext = pContext;
         }
-        if(currentContext){
+        if (currentContext) {
           this.subscribe(currentContext);
         }
-        return this.value;
+        return this._value;
       }
     });
-    Computed.prototype.refresh = function(){
-      this.value = this.callback();
+    Computed.prototype.refresh = function () {
+      this._value = this.callback();
       this.flags &= ~STALE;
     }
-    Computed.prototype.subscribe = function(observer){
-      if(!this.observers.includes(observer))
+    Computed.prototype.subscribe = function (observer) {
+      if (!this.observers.includes(observer))
         this.observers.push(observer);
     }
-    Computed.prototype.notify = function (){
-      if(!this.flags & STALE) {
-          this.flags |= STALE;
-          for(let observerIndex = 0; observerIndex < this.observers.length; observerIndex++){
-            this.observers[observerIndex].notify();
-          }
+    Computed.prototype.notify = function () {
+      if (!this.flags & STALE) {
+        this.flags |= STALE;
+        for (let observerIndex = 0; observerIndex < this.observers.length; observerIndex++) {
+          this.observers[observerIndex].notify();
+        }
       }
     }
     /* Create new state */
@@ -814,11 +900,25 @@
   (function () {
     /* Create new render effect */
     function createRenderEffect(callback) {
-      let element = callback();
-      effect(function () {
-        patchOuter(element, callback);
-      });
-      return element;
+      /* 
+       * Chache new effect. 
+       * Component root node will be rendered 
+       * with common effect call.
+       */
+      let _effect = effect(callback);
+      /* 
+       * Save rendered node.
+       */
+      let node = getPreviousNode();
+      /* 
+       * Replace callback.
+       * Effect's initial callback to be replaced
+       * with wrapped patcher function.
+       */
+      _effect.callback = function () {
+        patchOuter(node, callback);
+      }
+      return node;
     }
     /* Mount component */
     mountComponent = function (componentFunction, ...props) {
@@ -828,7 +928,7 @@
       }
       return component;
     }
-
+    /* Mount application root */
     mount = function (rootSelector, component, ...props) {
       ready(function () {
         patch(document.querySelector(rootSelector), function () {
@@ -892,5 +992,9 @@
   t.signal = signal;
   t.effect = effect;
   t.computed = computed;
+  t.attr = setCurrentNodeAttribute;
+  t.on = setCurrentNodeListener;
+  t.node = getCurrentNode;
+  t.bind = setCurrentNodeBinding;
   window.t = t;
 })();
