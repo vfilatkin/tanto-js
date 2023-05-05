@@ -42,4 +42,3 @@ const App = title => {
 }
 
 t.mount('#app', App, 'This is a counter example')
-
