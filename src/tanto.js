@@ -666,6 +666,12 @@
       closeNode();
       return node;
     }
+    /* Creates an effect for text binding. */
+    function textContentBinding(binding) {
+      setCurrentNodeBinding(function () {
+        this.textContent = binding.$;
+      });
+    }
     /**
      * Creates a new text node or updates existing.
      * @example 

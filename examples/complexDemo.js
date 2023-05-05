@@ -12,11 +12,10 @@ const Input = (initialValue, validator) => {
   t.effect(() => {
     if (valid.$)
       console.log(value.$);
-  })
-
+  });
   t.effect(() => {
     console.log(valid.$ + " #2");
-  })
+  });
   return () => (
     t('div'),
     t.void('input', {
