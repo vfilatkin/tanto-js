@@ -720,15 +720,33 @@
       return previousNode;
     }
     /* Set current node attribute. */
-    setCurrentNodeAttribute = function (name, value) {
+    function setCurrentNodeAttributeNS(name, value) {
       if(namespace)
         currentNode.setAttributeNS(name, value);
       else
         currentNode.setAttribute(name, value);
     }
-    /* Set current node 'class' attribbute. */
+    /* Sets attribute value or creates a binding. */
+    function interpolateAttributeExpression(attribute, expression){
+      if(typeof expression === 'function'){
+        setCurrentNodeBinding(function(){
+          setCurrentNodeAttributeNS(attribute, expression());
+        });
+        return;
+      }
+      if(isBinding(expression)){
+        setCurrentNodeBinding(function(){
+          setCurrentNodeAttributeNS(attribute, expression.$);
+        });
+        return;
+      }
+      setCurrentNodeAttributeNS(attribute, expression);
+      return currentNode;
+    }
+    setCurrentNodeAttribute = interpolateAttributeExpression;
+    /* Set current node 'class' attribute. */
     setCurrentNodeClassAttribute = function (value) {
-      currentNode.setAttribute('class', value);
+      interpolateAttributeExpression('class', value);
     }
     /* Set current node event listener. */
     setCurrentNodeListener = function (name, callback, options) {
@@ -818,7 +836,7 @@
           let 
             instance = templateElement.content.firstChild.cloneNode(true),
             slots = getHTMLTemplateSlots(instance);
-          applyHTMLTemplateExpressions(slots, expressions);
+          interpolateHTMLTemplateExpressions(slots, expressions);
           currentNode.appendChild(instance);
           return instance;
         }
@@ -853,7 +871,7 @@
       return slots;
     }
     /* Applies template expressions to slots. */
-    function applyHTMLTemplateExpressions(slots, expressions) {
+    function interpolateHTMLTemplateExpressions(slots, expressions) {
       const pCurrentNode = currentNode;
       for (let index = 0; index < slots.length; index++) {
         const slot = slots[index];
@@ -870,18 +888,7 @@
           }
         } else {
           currentNode = slot[0];
-          if(typeof expression === 'function'){
-            setCurrentNodeBinding(expression)
-          }
-          if(isBinding(expression)){
-            setCurrentNodeBinding(function(){
-              let node = currentNode, attribute = slot[1], binding = expression;
-              node.setAttribute(attribute, binding.$);
-            });
-          } else {
-            currentNode.setAttribute(slot[1], expression);
-          }
-          
+          interpolateAttributeExpression(slot[1], expression);
         }
       }
       currentNode = pCurrentNode;
