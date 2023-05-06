@@ -12,7 +12,7 @@ const Counter = initialCount => {
   }
 
   return (
-    t('div'),
+    t('div'), 
       t.comment(count),
       t('button'),
         t.on('click', handleClick),
