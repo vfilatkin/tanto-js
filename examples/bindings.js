@@ -15,6 +15,7 @@ const Counter = initialCount => {
     t('div'), 
       t.comment(count),
       t('button'),
+        t.css('f1'),
         t.on('click', handleClick),
         t.bind(disableOnLimit),
         t('span'),

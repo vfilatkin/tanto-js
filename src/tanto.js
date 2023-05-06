@@ -29,7 +29,7 @@
   /**
    * Router module section
    */
-  var route, router;
+  let route, router;
   (function () {
     //Get URL parameters
     function getHashParameters(parameters) {
@@ -246,6 +246,7 @@
     getPreviousNode,
     getCurrentNode,
     setCurrentNodeAttribute,
+    setCurrentNodeClassAttribute,
     setCurrentNodeListener,
     setCurrentNodeBinding,
     paragraphHelper,
@@ -703,6 +704,13 @@
         removeNodesFrom(node);
       }
     }
+    /**
+     * Retruns current node context.
+     * Used in arrow functions instead of 'this'.
+     */
+    getCurrentNode = function () {
+      return currentNode;
+    }
     /* Get current DOM index. */
     getDOMIndex = function () {
       return DOMIndex;
@@ -717,6 +725,10 @@
         currentNode.setAttributeNS(name, value);
       else
         currentNode.setAttribute(name, value);
+    }
+    /* Set current node 'class' attribbute. */
+    setCurrentNodeClassAttribute = function (value) {
+      currentNode.setAttribute('class', value);
     }
     /* Set current node event listener. */
     setCurrentNodeListener = function (name, callback, options) {
@@ -790,7 +802,7 @@
     }
     /* Template slot name */
     const 
-      SLOT_NAME = '__t:slot__',
+      SLOT_NAME = '__tslot__',
       SLOT_TAG = '<!--' + SLOT_NAME + '-->';
     /*
      * HTML template implementation.
@@ -874,21 +886,14 @@
       }
       currentNode = pCurrentNode;
     }
-    /* 
-     * Retruns current node context. 
-     * Used in arrow functions instead of 'this'.
-     */
-    getCurrentNode = function () {
-      return currentNode;
-    }
   })();
 
-
+  
 
   /**
    * Component state module.
    */
-  var signal, computed, effect, signalInstance;
+  let signal, computed, effect, signalInstance;
   (function () {
     /* Effect & computed state flags */
     const
@@ -1031,7 +1036,7 @@
   /**
    * Component API module
    */
-  var mount, mountComponent;
+  let mount, mountComponent;
   (function () {
     /* Create new render effect */
     function createRenderEffect(callback) {
@@ -1072,6 +1077,9 @@
       })
     }
   })();
+
+
+
   /**
    * Manipulates patcher movement through DOM-tree nodes of an element.
    * Performs 'in-place' diffing of the node.
@@ -1128,6 +1136,7 @@
   t.effect = effect;
   t.computed = computed;
   t.attr = setCurrentNodeAttribute;
+  t.css = setCurrentNodeClassAttribute;
   t.on = setCurrentNodeListener;
   t.node = getCurrentNode;
   t.bind = setCurrentNodeBinding;
