@@ -788,31 +788,47 @@
         }
       }
     }
+    /* Template slot name */
+    const 
+      SLOT_NAME = '__t:slot__',
+      SLOT_TAG = '<!--' + SLOT_NAME + '-->';
     /*
      * HTML template implementation.
      * Transforms template literal into HTML template.
      */
     htmlTemplateImpl = function (elements, ...expressions) {
       let
-        templateText = elements.join('<!>'),
+        templateText = elements.join(SLOT_TAG),
         templateElement = document.createElement('template');
       templateElement.innerHTML = templateText;
       return {
         clone() {
           let 
             instance = templateElement.content.firstChild.cloneNode(true),
-            slots = getTemplateSlots(instance);
-          applyTemplateExpressions(slots, expressions);
+            slots = getHTMLTemplateSlots(instance);
+          applyHTMLTemplateExpressions(slots, expressions);
           currentNode.appendChild(instance);
           return instance;
         }
       }
     }
+    /* Get all slot attributes. */
+    function getHTMLTemplateNodeAttributeSlots(node, slots){
+      if(node.nodeType === Node.ELEMENT_NODE) {
+        if(node.hasAttributes()){
+          for(const attribute of node.attributes){
+            if(attribute.nodeValue === SLOT_TAG)
+              slots.push([node, attribute.name]);
+          }
+        }
+      }
+    }
     /* Find all slots (empty comment nodes) recursively. */
-    function getTemplateSlots(template) {
+    function getHTMLTemplateSlots(template) {
       let slots = [];
       function scan(node) {
-        if (node.nodeType === Node.COMMENT_NODE && node.textContent.length === 0) {
+        getHTMLTemplateNodeAttributeSlots(node, slots);
+        if (node.nodeType === Node.COMMENT_NODE && node.textContent === SLOT_NAME) {
           slots.push(node);
         }
         if (node.childNodes && node.childNodes.length) {
@@ -824,20 +840,36 @@
       scan(template);
       return slots;
     }
-    /* Applies template expressions. */
-    function applyTemplateExpressions(slots, expressions) {
+    /* Applies template expressions to slots. */
+    function applyHTMLTemplateExpressions(slots, expressions) {
       const pCurrentNode = currentNode;
       for (let index = 0; index < slots.length; index++) {
         const slot = slots[index];
         const expression = expressions[index];
-        currentNode = slot;
-        if (typeof expression !== 'function') {
-          let newTextNode = document.createTextNode(expression.value)
-          currentNode.replaceWith(newTextNode);
-          currentNode = newTextNode;
-          textContentBinding(expression);
+        if(slot.nodeType){
+          currentNode = slot;
+          if (typeof expression !== 'function') {
+            let newTextNode = document.createTextNode(expression.value)
+            currentNode.replaceWith(newTextNode);
+            currentNode = newTextNode;
+            textContentBinding(expression);
+          } else {
+            setCurrentNodeBinding(expression);
+          }
         } else {
-          setCurrentNodeBinding(expression);
+          currentNode = slot[0];
+          if(typeof expression === 'function'){
+            setCurrentNodeBinding(expression)
+          }
+          if(isBinding(expression)){
+            setCurrentNodeBinding(function(){
+              let node = currentNode, attribute = slot[1], binding = expression;
+              node.setAttribute(attribute, binding.$);
+            });
+          } else {
+            currentNode.setAttribute(slot[1], expression);
+          }
+          
         }
       }
       currentNode = pCurrentNode;
