@@ -249,7 +249,6 @@
     setCurrentNodeClassAttribute,
     setCurrentNodeListener,
     setCurrentNodeBinding,
-    paragraphHelper,
     rawStringImpl,
     htmlTemplateImpl;
 
@@ -799,12 +798,6 @@
         currentNode = pCurrentNode;
       });
     }
-    /* Paragraph helper for nested strings. */
-    paragraphHelper = function(...strings) {
-      for (let stringIndex = 0; stringIndex < strings.length; stringIndex++) {
-        textNode(strings[stringIndex]);
-      }
-    }
     /* 
      * Raw string implementation. 
      * Transforms template literal into paragraph.
@@ -1143,11 +1136,10 @@
   t.effect = effect;
   t.computed = computed;
   t.attr = setCurrentNodeAttribute;
-  t.css = setCurrentNodeClassAttribute;
+  t.class = setCurrentNodeClassAttribute;
   t.on = setCurrentNodeListener;
   t.node = getCurrentNode;
   t.bind = setCurrentNodeBinding;
-  t.par = paragraphHelper;
   t.raw = rawStringImpl;
   t.html = htmlTemplateImpl;
   t.id = generateRandomId;
