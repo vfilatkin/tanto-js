@@ -15,7 +15,7 @@ const Counter = initialCount => {
     t('div'), 
       t.comment(count),
       t('button'),
-        t.class(`f1 ${ ()=> hitLimit.$? '': 'active'}`),
+        t.class('f1'),
         t.on('click', handleClick),
         t.bind(disableOnLimit),
         t('span'),
