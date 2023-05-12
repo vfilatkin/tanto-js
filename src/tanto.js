@@ -1,10 +1,9 @@
 //Core library
 (function () {
   'use strict'
-  /**
-   * Perform callback when document is ready.
-   * @param {Function} f 
-   */
+
+  /* Utilies. */
+  function noop(){};
   function ready(f) {
     if (document.readyState != 'loading') {
       f();
@@ -12,232 +11,6 @@
       document.addEventListener('DOMContentLoaded', f);
     }
   }
-  /* Show warning message. */
-  function warn(message) {
-    console.error("[Warning]: " + message);
-  }
-
-  /* Generate random id */
-  function generateRandomId(length) {
-    let id = '';
-    const characters = 'ABCDEFGHIJKLMNOPQRSTUWXYZabcdefghijklmnopqrstuwxyz0123456789';
-    for (let index = 0; index < length; index++) {
-      id += characters.charAt(Math.floor(Math.random() * 60));
-    }
-    return id;
-  }
-
-  /* Generate unique id within provided map. */
-  function generateUID(map, length) {
-    let uid = generateRandomId(length);
-    while (map[uid])
-      uid = generateRandomId(length);
-    return uid;
-  }
-
-  /* Add map entry. */
-  function writeToMap(map, key, id) {
-    map[map[id] = key] = id;
-  }
-
-  /**
-   * Router module section
-   */
-  let route, router;
-  (function () {
-    //Get URL parameters
-    function getHashParameters(parameters) {
-      var array = parameters.split(/\&/),
-        params = {};
-      array.forEach(function (parameter) {
-        parameter = parameter.split(/\=/);
-        params[parameter[0]] = parameter[1];
-      });
-      return params;
-    }
-    //Get path object from URL
-    function parseHash(url) {
-      var path = url.replace(/^\#\//, "").split(/\?/);
-      return {
-        path: path[0].split(/\//),
-        params: path[1] ? getHashParameters(path[1]) : ""
-      };
-    }
-    //Get path object from route template 
-    function parseRouteTemplate(template) {
-      var i = 0,
-        segment = "",
-        expression = "",
-        path = template.split(/\//),
-        length = path.length;
-      for (; i < length; i++) {
-        segment = path[i];
-        expression = /\{(.*)\}/.exec(segment);
-        if (expression) {
-          path[i] = {
-            id: expression[1]
-          };
-        }
-      }
-      return path;
-    }
-    //Returns object if url.path matches route.path
-    function tryRoute(hashPath, routePath) {
-      var i = 0,
-        hashData = {},
-        hashPathSegment = null,
-        routePathSegment = null,
-        length = hashPath.length;
-      if (length == routePath.length) {
-        for (; i < length; i++) {
-          hashPathSegment = hashPath[i];
-          routePathSegment = routePath[i];
-          if (typeof routePathSegment == "string") {
-            if (hashPathSegment != routePathSegment) {
-              return false;
-            }
-          } else {
-            hashData[routePath[i].id] = hashPath[i];
-          }
-        }
-        return hashData;
-      } else {
-        return false;
-      }
-    }
-    //Find route and get hash data
-    function resolveRoute(hash, routes) {
-      let i = 0,
-        route = null,
-        resolvedHashData = false,
-        parsedHash = parseHash(hash),
-        length = routes.length;
-      for (; i < length; i++) {
-        route = routes[i];
-        //Get route data if match
-        resolvedHashData = tryRoute(parsedHash.path, route.path);
-        //Route found
-        if (resolvedHashData) {
-          return {
-            path: route.path,
-            action: route.action,
-            pathData: resolvedHashData,
-            pathParams: parsedHash.params
-          };
-        }
-      }
-      //Route not found
-      return false;
-    }
-    //Apply route component
-    function applyRoute(route) {
-      if (typeof route.action !== "function") {
-        route.action.view(
-          route.action.data ? route.action.data() : {}, {
-          pathData: route.pathData || {},
-          pathParams: route.pathParams || {}
-        }
-        );
-      } else {
-        route.action({}, {
-          pathData: route.pathData || {},
-          pathParams: route.pathParams || {}
-        });
-      }
-    }
-    //Check router parameters before mount
-    function validateRouterOptions(options) {
-      if (options || typeof options == "object") {
-        //Set routing error handler
-        options.error = options.default || "default";
-        if (!options.routes || options.routes.length == 0) {
-          //Define routing error handler if router undefined or empty
-          warn("Router undefined or empty, defaults is used.");
-          options.routes = [t.route("default", {
-            view: noop
-          })];
-          options.default = "default";
-        } else {
-          //Define routing error handler if hendler is not defined
-          if (!resolveRoute(options.error, options.routes)) {
-            warn("Router has no '" + options.error + "' error handler, defaults is used.");
-            options.router.push(t.route(options.error, {
-              view: noop
-            }));
-          }
-        }
-        //Application is valid
-        return true;
-      } else {
-        //Application is NOT valid
-        return false;
-      }
-    }
-    /**
-     * Parses route template string and returns route.
-     * Route can have static and dynamic segments. 
-     * Static segments separated by slashes.
-     * Dynamic segments are enclosed in curly braces 
-     * and will be passed as pathData after resolve.
-     * @example
-     * t.route("main/{foo}/{bar}/view", view)
-     * @example
-     * @param {string} template 
-     * @param {function} action 
-     * @returns {object} 
-     */
-    route = function (template, action) {
-      return {
-        path: parseRouteTemplate(template),
-        action: action
-      }
-    }
-    //Find route and redirect
-    function handleHashChange(routes, defaultRoute) {
-      var validRoute = resolveRoute(window.location.hash, routes),
-        defaultRoute = resolveRoute(defaultRoute, routes);
-      if (validRoute) {
-        applyRoute(validRoute);
-      } else {
-        applyRoute(defaultRoute);
-      }
-    }
-    //Make router options from args
-    function makeRouterOptions(args) {
-      var options = {};
-      options.default = args[0];
-      options.routes = args[1];
-      return options;
-    }
-    /**
-     * Creates a new router and adds hash change listener.
-     * @example
-     * t.router(
-     *   "main",
-     *   [
-     *      t.route("main", main),
-     *      t.route("search/{foo}/{bar}/view", search)
-     *      //...
-     *   ]
-     * );
-     * @example
-     * @param {string} default 
-     * @param {array} routes 
-     */
-    router = function (options) {
-      options = arguments.length > 1 ?
-        makeRouterOptions(arguments) :
-        options;
-      if (!validateRouterOptions(options))
-        throw "[Error]: Application must be object";
-      ready(function () {
-        handleHashChange(options.routes, options.default);
-        window.onhashchange = function () {
-          handleHashChange(options.routes, options.default);
-        }
-      });
-    }
-  })();
 
 
 
@@ -258,13 +31,11 @@
     clearNode,
     getPreviousNode,
     getCurrentNode,
-    setScope,
     setCurrentNodeAttribute,
     setCurrentNodeClassAttribute,
     setCurrentNodeListener,
     setCurrentNodeBinding,
-    rawStringImpl,
-    htmlTemplateImpl;
+    rawStringImpl;
 
   (function () {
     const
@@ -296,9 +67,7 @@
       //Created patch. Will be attached after it is comleted.
       patchRoot = null,
       //Parent for created patch.
-      patchParent = null,
-      //Patcher scope UID.
-      scope = null;
+      patchParent = null;
     /**
      * Patches elements of DOM-tree
      * @param {element} element - Entry element of patch.
@@ -321,8 +90,7 @@
           pCurrentNode = currentNode,
           pPreviousNode = previousNode,
           pPatchRoot = patchRoot,
-          pPatchParent = patchParent,
-          pScope = scope;
+          pPatchParent = patchParent;
         //Setup new patch context copy
         currentRootNode = element;
         namespace = namespaceURI ? { node: element, URI: namespaceURI } : null;
@@ -333,7 +101,6 @@
         previousNode = null;
         patchRoot = null;
         patchParent = null;
-        scope = null;
         try {
           patcherFn(patchFn)
         } finally {
@@ -346,7 +113,6 @@
             previousNode = pPreviousNode;
             patchRoot = pPatchRoot;
             patchParent = pPatchParent;
-            scope = pScope;
         }
         return element;
       }
@@ -729,10 +495,6 @@
     getPreviousNode = function () {
       return previousNode;
     }
-    /* Set current scope UID. */
-    setScope = function (scopeUID) {
-      return scope = scopeUID;
-    }
     /* Set current node attribute. */
     function setCurrentNodeAttributeNS(name, value) {
       if (namespace)
@@ -750,27 +512,15 @@
         });
         return currentNode;
       }
-      if (isBinding(expression)) {
-        setCurrentNodeBinding(function () {
-          setCurrentNodeAttributeNS(attribute, expression.$);
-          callback();
-        });
-        return currentNode;
-      }
       setCurrentNodeAttributeNS(attribute, expression);
       callback();
       return currentNode;
     }
     /* Set current node attribute with interpolation. */
     setCurrentNodeAttribute = interpolateAttributeExpression;
-    /* Add scope to class list. */
-    function addScopeToClassList() {
-      if (scope)
-        currentNode.classList.add(scope);
-    }
     /* Set current node 'class' attribute with interpolation. */
     setCurrentNodeClassAttribute = function (value) {
-      interpolateAttributeExpression('class', value, addScopeToClassList);
+      interpolateAttributeExpression('class', value);
     }
     /* Set current node event listener. */
     setCurrentNodeListener = function (name, callback, options) {
@@ -778,7 +528,7 @@
     }
     /* Returns true if object is instance of signal. */
     function isBinding(data) {
-      return data instanceof signalInstance;
+      return isSignal(data);
     }
     /* Resolves text content binding. */
     function createNodeTextContentHandler(nodeType) {
@@ -836,100 +586,6 @@
         }
       }
     }
-    /* Template slot name */
-    const
-      SLOT_NAME = '__tslot__',
-      SLOT_TAG = '<!--' + SLOT_NAME + '-->';
-    /*
-     * HTML template implementation.
-     * Transforms template literal into HTML template.
-     */
-    htmlTemplateImpl = function (elements, ...expressions) {
-      let
-        templateText = elements.join(SLOT_TAG),
-        templateElement = document.createElement('template');
-      templateElement.innerHTML = templateText;
-      return {
-        clone() {
-          let
-            instance = templateElement.content.firstChild.cloneNode(true),
-            slots = getHTMLTemplateSlots(instance);
-          interpolateHTMLTemplateExpressions(slots, expressions);
-          currentNode.appendChild(instance);
-          return instance;
-        }
-      }
-    }
-    /* Get all slot attributes. */
-    function getHTMLTemplateNodeAttributeSlots(node, slots) {
-      if (node.nodeType === Node.ELEMENT_NODE) {
-        if (node.hasAttributes()) {
-          for (const attribute of node.attributes) {
-            if (attribute.nodeValue === SLOT_TAG)
-              slots.push([node, attribute.name]);
-          }
-        }
-      }
-    }
-    /* Find all slots (empty comment nodes) recursively. */
-    function getHTMLTemplateSlots(template) {
-      let slots = [];
-      function scan(node) {
-        getHTMLTemplateNodeAttributeSlots(node, slots);
-        if (node.nodeType === Node.COMMENT_NODE && node.textContent === SLOT_NAME) {
-          slots.push(node);
-        }
-        if (node.childNodes && node.childNodes.length) {
-          for (let childIndex = 0; childIndex < node.childNodes.length; childIndex++) {
-            scan(node.childNodes[childIndex]);
-          }
-        }
-      }
-      scan(template);
-      return slots;
-    }
-    /* Applies template expressions to slots. */
-    function interpolateHTMLTemplateExpressions(slots, expressions) {
-      const pCurrentNode = currentNode;
-      for (let index = 0; index < slots.length; index++) {
-        const slot = slots[index];
-        const expression = expressions[index];
-        if (slot.nodeType) {
-          currentNode = slot;
-          if (typeof expression !== 'function') {
-            let newTextNode = document.createTextNode(expression.value)
-            currentNode.replaceWith(newTextNode);
-            currentNode = newTextNode;
-            textContentBinding(expression);
-          } else {
-            setCurrentNodeBinding(expression);
-          }
-        } else {
-          currentNode = slot[0];
-          interpolateAttributeExpression(slot[1], expression);
-        }
-      }
-      currentNode = pCurrentNode;
-    }
-  })();
-
-
-
-  /* Stylesheet generator module */
-  let style, rule;
-  (function () {
-    style = function (component) {
-      let uid = setComponentScope(component);
-      return function (...rules) {
-        return rules.map(rule => (rule.selector += '.' + uid, rule));
-      }
-    }
-    rule = function (selector) {
-      return function (elements, ...expressions) {
-        let declarations = '';
-        return { selector: selector, declarations: declarations }
-      }
-    }
   })();
 
 
@@ -937,13 +593,13 @@
   /**
    * Component state module.
    */
-  let signal, computed, effect, signalInstance;
+  let signal, computed, effect, isSignal;
   (function () {
     /* Effect & computed state flags */
     const
       STALE = 1 << 0,
       RUNNING = 1 << 1;
-    /* Globlas */
+    /* Globals */
     let
       currentContext = null,
       effectQueue = [];
@@ -955,7 +611,10 @@
       this.observers = [];
       this.options = options || SIGNAL_OPTIONS;
     }
-    signalInstance = Signal;
+    /* Returns true if given object is instance of Signal */
+    isSignal = function(object){
+      return object instanceof Signal;
+    };
     Object.defineProperty(Signal.prototype, "$", {
       get() {
         if (currentContext)
@@ -1078,21 +737,8 @@
   /**
    * Component API module
    */
-  let mount, mountComponent, setComponentScope, getComponentScope;
+  let mount, mountComponent;
   (function () {
-    /* Component scope map. */
-    const Scope = {};
-    /* Add new component scope. */
-    setComponentScope = function (component) {
-      let uid = Scope[component];
-      if (uid) return uid;
-      uid = generateUID(Scope, 4);
-      writeToMap(Scope, component, uid);
-      return uid;
-    }
-    getComponentScope = function (component) {
-      return Scope[component];
-    }
     /* Create new render effect */
     function createRenderEffect(callback) {
       /* 
@@ -1117,7 +763,6 @@
     }
     /* Mount component */
     mountComponent = function (componentFunction, ...props) {
-      setScope(getComponentScope(componentFunction));
       let component = componentFunction(...props);
       if (typeof component === 'function') {
         component = createRenderEffect(component);
@@ -1185,8 +830,6 @@
   t.text = textNode;
   t.comment = commentNode;
   t.clear = clearNode;
-  t.route = route;
-  t.router = router;
   t.mount = mount;
   t.signal = signal;
   t.effect = effect;
@@ -1197,9 +840,5 @@
   t.node = getCurrentNode;
   t.bind = setCurrentNodeBinding;
   t.raw = rawStringImpl;
-  t.html = htmlTemplateImpl;
-  t.id = generateRandomId;
-  t.style = style;
-  t.rule = rule;
   window.t = t;
 })();
