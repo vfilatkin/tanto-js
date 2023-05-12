@@ -12,7 +12,7 @@
     }
   }
 
-
+  
 
   /**
    * The DOM Patcher.
@@ -611,6 +611,9 @@
       this.observers = [];
       this.options = options || SIGNAL_OPTIONS;
     }
+    Signal.prototype.toString = function() {
+      return "[object Signal]";
+    }
     /* Returns true if given object is instance of Signal */
     isSignal = function(object){
       return object instanceof Signal;
@@ -657,6 +660,9 @@
       this.options = options || EFFECT_OPTIONS;
       this.run();
     }
+    Effect.prototype.toString = function() {
+      return "[object Effect]";
+    }
     Effect.prototype.run = function () {
       if (this.flags & RUNNING)
         throw new Error("Loop detected");
@@ -689,6 +695,9 @@
       this._value = undefined;
       this.flags = STALE;
       this.observers = [];
+    }
+    Computed.prototype.toString = function() {
+      return "[object Computed]";
     }
     Object.defineProperty(Computed.prototype, "$", {
       get() {
