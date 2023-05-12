@@ -26,6 +26,20 @@
     }
     return id;
   }
+
+  /* Generate unique id within provided map. */
+  function generateUID(map, length) {
+    let uid = generateRandomId(length);
+    while (map[uid])
+      uid = generateRandomId(length);
+    return uid;
+  }
+
+  /* Add map entry. */
+  function writeToMap(map, key, id) {
+    map[map[id] = key] = id;
+  }
+
   /**
    * Router module section
    */
@@ -242,9 +256,9 @@
     textNode,
     commentNode,
     clearNode,
-    getDOMIndex,
     getPreviousNode,
     getCurrentNode,
+    setScope,
     setCurrentNodeAttribute,
     setCurrentNodeClassAttribute,
     setCurrentNodeListener,
@@ -265,8 +279,6 @@
      * patch() function.
      */
     var
-      //DOM index of element
-      DOMIndex = 0,
       //Current patch entry point
       currentRootNode = null,
       //Current patcher namespace
@@ -284,7 +296,9 @@
       //Created patch. Will be attached after it is comleted.
       patchRoot = null,
       //Parent for created patch.
-      patchParent = null;
+      patchParent = null,
+      //Patcher scope UID.
+      scope = null;
     /**
      * Patches elements of DOM-tree
      * @param {element} element - Entry element of patch.
@@ -307,30 +321,32 @@
           pCurrentNode = currentNode,
           pPreviousNode = previousNode,
           pPatchRoot = patchRoot,
-          pPatchParent = patchParent;
+          pPatchParent = patchParent,
+          pScope = scope;
         //Setup new patch context copy
-        currentRootNode = element,
-          namespace = namespaceURI ? { node: element, URI: namespaceURI } : null,
-          previousCommand = null,
-          currentCommand = OPEN_NODE,
-          currentNode = element,
-          currentNodeType = element.nodeType,
-          previousNode = null,
-          patchRoot = null,
-          patchParent = null;
+        currentRootNode = element;
+        namespace = namespaceURI ? { node: element, URI: namespaceURI } : null;
+        previousCommand = null;
+        currentCommand = OPEN_NODE;
+        currentNode = element;
+        currentNodeType = element.nodeType;
+        previousNode = null;
+        patchRoot = null;
+        patchParent = null;
+        scope = null;
         try {
           patcherFn(patchFn)
         } finally {
-          DOMIndex = 0,
-            currentRootNode = pCurrentRootNode,
-            namespace = pNamespace,
-            previousCommand = pPreviousCommand,
-            currentCommand = pCurrentCommand,
-            currentNodeType = pCurrentNodeType,
-            currentNode = pCurrentNode,
-            previousNode = pPreviousNode,
-            patchRoot = pPatchRoot,
+          currentRootNode = pCurrentRootNode;
+            namespace = pNamespace;
+            previousCommand = pPreviousCommand;
+            currentCommand = pCurrentCommand;
+            currentNodeType = pCurrentNodeType;
+            currentNode = pCurrentNode;
+            previousNode = pPreviousNode;
+            patchRoot = pPatchRoot;
             patchParent = pPatchParent;
+            scope = pScope;
         }
         return element;
       }
@@ -547,7 +563,7 @@
         * text content will be changed.
         */
         switch (currentNode.nodeType) {
-          case Node.ELEMENT_NODE: 
+          case Node.ELEMENT_NODE:
             if (!isSameTag(currentNode.tagName, tagName)) {
               currentNode = replaceNode(currentNode, createElementNode(tagName));
             }
@@ -644,7 +660,6 @@
     }
     //Open node command
     openNode = function (tagName, nodeType, nodeData, namespaceURI) {
-      ++DOMIndex;
       pushCommand(OPEN_NODE, tagName, nodeType, nodeData, namespaceURI);
       return currentNode;
     }
@@ -711,41 +726,51 @@
       return currentNode;
     }
     /* Get current DOM index. */
-    getDOMIndex = function () {
-      return DOMIndex;
-    }
-    /* Get current DOM index. */
     getPreviousNode = function () {
       return previousNode;
     }
+    /* Set current scope UID. */
+    setScope = function (scopeUID) {
+      return scope = scopeUID;
+    }
     /* Set current node attribute. */
     function setCurrentNodeAttributeNS(name, value) {
-      if(namespace)
+      if (namespace)
         currentNode.setAttributeNS(name, value);
       else
         currentNode.setAttribute(name, value);
     }
     /* Sets attribute value or creates a binding. */
-    function interpolateAttributeExpression(attribute, expression){
-      if(typeof expression === 'function'){
-        setCurrentNodeBinding(function(){
+    function interpolateAttributeExpression(attribute, expression, callback) {
+      callback = callback || noop;
+      if (typeof expression === 'function') {
+        setCurrentNodeBinding(function () {
           setCurrentNodeAttributeNS(attribute, expression());
+          callback();
         });
-        return;
+        return currentNode;
       }
-      if(isBinding(expression)){
-        setCurrentNodeBinding(function(){
+      if (isBinding(expression)) {
+        setCurrentNodeBinding(function () {
           setCurrentNodeAttributeNS(attribute, expression.$);
+          callback();
         });
-        return;
+        return currentNode;
       }
       setCurrentNodeAttributeNS(attribute, expression);
+      callback();
       return currentNode;
     }
+    /* Set current node attribute with interpolation. */
     setCurrentNodeAttribute = interpolateAttributeExpression;
-    /* Set current node 'class' attribute. */
+    /* Add scope to class list. */
+    function addScopeToClassList() {
+      if (scope)
+        currentNode.classList.add(scope);
+    }
+    /* Set current node 'class' attribute with interpolation. */
     setCurrentNodeClassAttribute = function (value) {
-      interpolateAttributeExpression('class', value);
+      interpolateAttributeExpression('class', value, addScopeToClassList);
     }
     /* Set current node event listener. */
     setCurrentNodeListener = function (name, callback, options) {
@@ -812,7 +837,7 @@
       }
     }
     /* Template slot name */
-    const 
+    const
       SLOT_NAME = '__tslot__',
       SLOT_TAG = '<!--' + SLOT_NAME + '-->';
     /*
@@ -826,7 +851,7 @@
       templateElement.innerHTML = templateText;
       return {
         clone() {
-          let 
+          let
             instance = templateElement.content.firstChild.cloneNode(true),
             slots = getHTMLTemplateSlots(instance);
           interpolateHTMLTemplateExpressions(slots, expressions);
@@ -836,11 +861,11 @@
       }
     }
     /* Get all slot attributes. */
-    function getHTMLTemplateNodeAttributeSlots(node, slots){
-      if(node.nodeType === Node.ELEMENT_NODE) {
-        if(node.hasAttributes()){
-          for(const attribute of node.attributes){
-            if(attribute.nodeValue === SLOT_TAG)
+    function getHTMLTemplateNodeAttributeSlots(node, slots) {
+      if (node.nodeType === Node.ELEMENT_NODE) {
+        if (node.hasAttributes()) {
+          for (const attribute of node.attributes) {
+            if (attribute.nodeValue === SLOT_TAG)
               slots.push([node, attribute.name]);
           }
         }
@@ -869,7 +894,7 @@
       for (let index = 0; index < slots.length; index++) {
         const slot = slots[index];
         const expression = expressions[index];
-        if(slot.nodeType){
+        if (slot.nodeType) {
           currentNode = slot;
           if (typeof expression !== 'function') {
             let newTextNode = document.createTextNode(expression.value)
@@ -888,7 +913,26 @@
     }
   })();
 
-  
+
+
+  /* Stylesheet generator module */
+  let style, rule;
+  (function () {
+    style = function (component) {
+      let uid = setComponentScope(component);
+      return function (...rules) {
+        return rules.map(rule => (rule.selector += '.' + uid, rule));
+      }
+    }
+    rule = function (selector) {
+      return function (elements, ...expressions) {
+        let declarations = '';
+        return { selector: selector, declarations: declarations }
+      }
+    }
+  })();
+
+
 
   /**
    * Component state module.
@@ -1031,13 +1075,24 @@
     }
   })();
 
-
-
   /**
    * Component API module
    */
-  let mount, mountComponent;
+  let mount, mountComponent, setComponentScope, getComponentScope;
   (function () {
+    /* Component scope map. */
+    const Scope = {};
+    /* Add new component scope. */
+    setComponentScope = function (component) {
+      let uid = Scope[component];
+      if (uid) return uid;
+      uid = generateUID(Scope, 4);
+      writeToMap(Scope, component, uid);
+      return uid;
+    }
+    getComponentScope = function (component) {
+      return Scope[component];
+    }
     /* Create new render effect */
     function createRenderEffect(callback) {
       /* 
@@ -1062,6 +1117,7 @@
     }
     /* Mount component */
     mountComponent = function (componentFunction, ...props) {
+      setScope(getComponentScope(componentFunction));
       let component = componentFunction(...props);
       if (typeof component === 'function') {
         component = createRenderEffect(component);
@@ -1143,5 +1199,7 @@
   t.raw = rawStringImpl;
   t.html = htmlTemplateImpl;
   t.id = generateRandomId;
+  t.style = style;
+  t.rule = rule;
   window.t = t;
 })();
