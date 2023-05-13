@@ -12,7 +12,27 @@
     }
   }
 
-  
+
+
+  let plugin, plugins;
+  (function () {
+    plugins = {
+      openRoot: [],
+      openComponent: [],
+      closeComponent: [],
+      openNode: [],
+      closeNode: [],
+      setAttribute: []
+    }
+    plugin = function (hooks){
+      for(let key in plugins){
+        if(hooks[key])
+          plugins[key].push(hooks[key])
+      }
+    }
+  })();
+
+
 
   /**
    * The DOM Patcher.
@@ -425,12 +445,14 @@
     //Open node command
     openNode = function (tagName, nodeType, nodeData, namespaceURI) {
       pushCommand(OPEN_NODE, tagName, nodeType, nodeData, namespaceURI);
+      plugins.openNode.forEach(hook => hook(tagName, nodeType, nodeData, namespaceURI));
       return currentNode;
     }
     //Close node command.
     closeNode = function () {
       var node = currentNode;
       pushCommand(CLOSE_NODE);
+      plugins.closeNode.forEach(hook => hook());
       return node;
     }
     /* Creates an effect for text binding. */
@@ -483,6 +505,7 @@
         currentNode.setAttributeNS(name, value);
       else
         currentNode.setAttribute(name, value);
+      plugins.setAttribute.forEach(hook => hook(name, value));
     }
     /* Sets attribute value or creates a binding. */
     function interpolateAttributeExpression(attribute, expression, callback) {
@@ -759,16 +782,19 @@
     }
     /* Mount component */
     mountComponent = function (componentFunction, ...props) {
+      plugins.openComponent.forEach(hook => hook(componentFunction, ...props));
       let component = componentFunction(...props);
       if (typeof component === 'function') {
         component = createRenderEffect(component);
       }
+      plugins.closeComponent.forEach(hook => hook(componentFunction, ...props));
       return component;
     }
     /* Mount application root */
     mount = function (rootSelector, component, ...props) {
       ready(function () {
         patchInner(document.querySelector(rootSelector), function () {
+          plugins.openRoot.forEach(hook => hook(rootSelector, component, ...props));
           mountComponent(component, ...props);
         })
       })
@@ -834,5 +860,6 @@
   t.node = getCurrentNode;
   t.bind = setCurrentNodeBinding;
   t.text = setCurrentNodeInnerText;
+  t.plugin = plugin;
   window.t = t;
 })();
