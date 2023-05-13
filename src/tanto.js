@@ -21,12 +21,10 @@
    * Represents opening or closing tags.
    */
   let
-    patch,
+    patchInner,
     patchOuter,
     openNode,
     closeNode,
-    voidElement,
-    textNode,
     commentNode,
     clearNode,
     getPreviousNode,
@@ -35,7 +33,7 @@
     setCurrentNodeClassAttribute,
     setCurrentNodeListener,
     setCurrentNodeBinding,
-    rawStringImpl;
+    setCurrentNodeInnerText;
 
   (function () {
     const
@@ -118,7 +116,7 @@
       }
     }
     //Inner patcher
-    patch = Patcher(function (patchFn) {
+    patchInner = Patcher(function (patchFn) {
       currentNode = currentRootNode;
       let element = patchFn();
       removeUnopened();
@@ -435,18 +433,6 @@
       pushCommand(CLOSE_NODE);
       return node;
     }
-    /**
-     * Self-closing element.
-     * @param {string} text
-     * @example 
-     * t.void('input');
-     * @example
-     */
-    voidElement = function (tagName, nodeData, namespaceURI) {
-      var node = openNode(tagName, Node.ELEMENT_NODE, nodeData, namespaceURI);
-      closeNode();
-      return node;
-    }
     /* Creates an effect for text binding. */
     function textContentBinding(binding) {
       setCurrentNodeBinding(function () {
@@ -455,12 +441,8 @@
     }
     /**
      * Creates a new text node or updates existing.
-     * @example 
-     * t.text('foo');
-     * @example
      */
-
-    textNode = function (value) {
+    function textNode(value) {
       return TEXT_NODE_HANLDER(value);
     }
     /**
@@ -574,10 +556,14 @@
       });
     }
     /* 
-     * Raw string implementation. 
-     * Transforms template literal into paragraph.
+     * Creates text node or transforms template 
+     * literal into paragraph.
      */
-    rawStringImpl = function (elements, ...expressions) {
+    setCurrentNodeInnerText = function (elements, ...expressions) {
+      if(expressions.length === 0) {
+        textNode(elements);
+        return currentNode;
+      }
       for (let index = 0; index < elements.length; index++) {
         const element = elements[index];
         textNode(element);
@@ -585,6 +571,7 @@
           textNode(expressions[index]);
         }
       }
+      return currentNode;
     }
   })();
 
@@ -781,7 +768,7 @@
     /* Mount application root */
     mount = function (rootSelector, component, ...props) {
       ready(function () {
-        patch(document.querySelector(rootSelector), function () {
+        patchInner(document.querySelector(rootSelector), function () {
           mountComponent(component, ...props);
         })
       })
@@ -833,10 +820,8 @@
   }
   //Expose API
   t.ready = ready;
-  t.patch = patch;
+  t.patch = patchInner;
   t.outer = patchOuter;
-  t.void = voidElement;
-  t.text = textNode;
   t.comment = commentNode;
   t.clear = clearNode;
   t.mount = mount;
@@ -848,6 +833,6 @@
   t.on = setCurrentNodeListener;
   t.node = getCurrentNode;
   t.bind = setCurrentNodeBinding;
-  t.raw = rawStringImpl;
+  t.text = setCurrentNodeInnerText;
   window.t = t;
 })();
