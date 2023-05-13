@@ -12,11 +12,11 @@ const Input = (initialValue, validator) => {
 
   return () => (
     t('div'),
-      t.void('input', {
-        'value': initialValue, 
-        'onchange': handleChange
-      }),
-      (valid.$? t.text('  \u2713'): t.text('  \u2717')),
+      t('input'),
+        t.attr('value', initialValue),
+        t.on('input', handleChange),
+      t(),
+      t.text(()=> ` ${valid.$? '\u2713' : '\u2717'}`),
     t()
   );
 }
