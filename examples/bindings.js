@@ -43,7 +43,7 @@ const App = title => {
       t(Counter, 5),
       t(Counter, 7),
       t('button', {'onclick': handleClick}),
-        t.text('reload app'),
+        t.text`reload app`,
       t(),
     t()
   );

@@ -35,6 +35,161 @@
 
 
   /**
+   * Component state module.
+   */
+  let signal, computed, effect, isSignal;
+  (function () {
+    /* Effect & computed state flags */
+    const
+      STALE = 1 << 0,
+      RUNNING = 1 << 1;
+    /* Globals */
+    let
+      currentContext = null,
+      effectQueue = [];
+
+    /* Signal */
+    const SIGNAL_OPTIONS = { equal: true };
+    function Signal(value, options) {
+      this._value = value;
+      this.observers = [];
+      this.options = options || SIGNAL_OPTIONS;
+    }
+    Signal.prototype.toString = function() {
+      return "[object Signal]";
+    }
+    /* Returns true if given object is instance of Signal */
+    isSignal = function(object){
+      return object instanceof Signal;
+    };
+    Object.defineProperty(Signal.prototype, "$", {
+      get() {
+        if (currentContext)
+          this.subscribe(currentContext);
+        return this._value;
+      },
+      set(newValue) {
+        if (this._value === newValue && this.options.equal)
+          return this._value;
+        this._value = newValue;
+        this.notify();
+        runEffects();
+        return this._value;
+      }
+    });
+    Object.defineProperty(Signal.prototype, "value", {
+      get() {
+        return this._value;
+      },
+      set(newValue) {
+        this._value = newValue;
+        return this._value;
+      }
+    });
+    Signal.prototype.subscribe = function (observer) {
+      if (!this.observers.includes(observer))
+        this.observers.push(observer);
+    }
+    Signal.prototype.notify = function () {
+      for (let observerIndex = 0; observerIndex < this.observers.length; observerIndex++) {
+        this.observers[observerIndex].notify();
+      }
+    }
+
+    /* Effect */
+    const EFFECT_OPTIONS = { defer: false };
+    function Effect(callback, options) {
+      this.callback = callback;
+      this.flags = STALE;
+      this.options = options || EFFECT_OPTIONS;
+      this.run();
+    }
+    Effect.prototype.toString = function() {
+      return "[object Effect]";
+    }
+    Effect.prototype.run = function () {
+      if (this.flags & RUNNING)
+        throw new Error("Loop detected");
+      if (this.flags & STALE) {
+        this.flags |= RUNNING;
+        let pContext = currentContext;
+        currentContext = this;
+        this.callback();
+        this.flags &= ~RUNNING;
+        currentContext = pContext;
+      }
+      this.flags &= ~STALE;
+    }
+    Effect.prototype.notify = function () {
+      if (!this.flags & STALE) {
+        this.flags |= STALE;
+        effectQueue.push(this);
+      }
+    }
+    function runEffects() {
+      for (let effectIndex = 0; effectIndex < effectQueue.length; effectIndex++) {
+        effectQueue[effectIndex].run();
+      }
+      effectQueue.length = 0;
+    }
+
+    /* Computed */
+    function Computed(callback) {
+      this.callback = callback;
+      this._value = undefined;
+      this.flags = STALE;
+      this.observers = [];
+    }
+    Computed.prototype.toString = function() {
+      return "[object Computed]";
+    }
+    Object.defineProperty(Computed.prototype, "$", {
+      get() {
+        if (this.flags & STALE) {
+          const pContext = currentContext;
+          currentContext = this;
+          this.refresh();
+          currentContext = pContext;
+        }
+        if (currentContext) {
+          this.subscribe(currentContext);
+        }
+        return this._value;
+      }
+    });
+    Computed.prototype.refresh = function () {
+      this._value = this.callback();
+      this.flags &= ~STALE;
+    }
+    Computed.prototype.subscribe = function (observer) {
+      if (!this.observers.includes(observer))
+        this.observers.push(observer);
+    }
+    Computed.prototype.notify = function () {
+      if (!this.flags & STALE) {
+        this.flags |= STALE;
+        for (let observerIndex = 0; observerIndex < this.observers.length; observerIndex++) {
+          this.observers[observerIndex].notify();
+        }
+      }
+    }
+    /* Create new state */
+    signal = function (value, options) {
+      return new Signal(value, options);
+    }
+    /* Create new effect */
+    effect = function (callback, options) {
+      return new Effect(callback, options);
+    }
+    /* Create new computed */
+    computed = function (callback) {
+      return new Computed(callback);
+    }
+  })();
+
+
+
+  /**
    * The DOM Patcher.
    * 
    * Commands to track patcher movement. 
@@ -54,6 +209,9 @@
     setCurrentNodeListener,
     setCurrentNodeBinding,
     setCurrentNodeInnerText;
+  let 
+    mount, 
+    mountComponent;
 
   (function () {
     const
@@ -85,7 +243,9 @@
       //Created patch. Will be attached after it is comleted.
       patchRoot = null,
       //Parent for created patch.
-      patchParent = null;
+      patchParent = null,
+      //Current component reference;
+      currentComponent = null;
     /**
      * Patches elements of DOM-tree
      * @param {element} element - Entry element of patch.
@@ -108,7 +268,8 @@
           pCurrentNode = currentNode,
           pPreviousNode = previousNode,
           pPatchRoot = patchRoot,
-          pPatchParent = patchParent;
+          pPatchParent = patchParent,
+          pCurrentComponent = currentComponent;
         //Setup new patch context copy
         currentRootNode = element;
         namespace = namespaceURI ? { node: element, URI: namespaceURI } : null;
@@ -119,18 +280,20 @@
         previousNode = null;
         patchRoot = null;
         patchParent = null;
+        currentComponent = null;
         try {
           patcherFn(patchFn)
         } finally {
           currentRootNode = pCurrentRootNode;
-            namespace = pNamespace;
-            previousCommand = pPreviousCommand;
-            currentCommand = pCurrentCommand;
-            currentNodeType = pCurrentNodeType;
-            currentNode = pCurrentNode;
-            previousNode = pPreviousNode;
-            patchRoot = pPatchRoot;
-            patchParent = pPatchParent;
+          namespace = pNamespace;
+          previousCommand = pPreviousCommand;
+          currentCommand = pCurrentCommand;
+          currentNodeType = pCurrentNodeType;
+          currentNode = pCurrentNode;
+          previousNode = pPreviousNode;
+          patchRoot = pPatchRoot;
+          patchParent = pPatchParent;
+          currentComponent = pCurrentComponent;
         }
         return element;
       }
@@ -570,12 +733,17 @@
       COMMENT_NODE_HANLDER = createNodeTextContentHandler(Node.COMMENT_NODE);
     /* Set current node bindings. */
     setCurrentNodeBinding = function (callback) {
-      let _currentNode = currentNode;
+      let 
+        _currentNode = currentNode,
+        _currentComponent = currentComponent;
       effect(function () {
-        let pCurrentNode = currentNode;
+        let pCurrentNode = currentNode,
+            pCurrentComponent = currentComponent;
         currentNode = _currentNode;
+        currentComponent = _currentComponent;
         callback.call(_currentNode);
         currentNode = pCurrentNode;
+        currentComponent = pCurrentComponent;
       });
     }
     /* 
@@ -596,170 +764,9 @@
       }
       return currentNode;
     }
-  })();
-
-
-
-  /**
-   * Component state module.
-   */
-  let signal, computed, effect, isSignal;
-  (function () {
-    /* Effect & computed state flags */
-    const
-      STALE = 1 << 0,
-      RUNNING = 1 << 1;
-    /* Globals */
-    let
-      currentContext = null,
-      effectQueue = [];
-
-    /* Signal */
-    const SIGNAL_OPTIONS = { equal: true };
-    function Signal(value, options) {
-      this._value = value;
-      this.observers = [];
-      this.options = options || SIGNAL_OPTIONS;
-    }
-    Signal.prototype.toString = function() {
-      return "[object Signal]";
-    }
-    /* Returns true if given object is instance of Signal */
-    isSignal = function(object){
-      return object instanceof Signal;
-    };
-    Object.defineProperty(Signal.prototype, "$", {
-      get() {
-        if (currentContext)
-          this.subscribe(currentContext);
-        return this._value;
-      },
-      set(newValue) {
-        if (this._value === newValue && this.options.equal)
-          return this._value;
-        this._value = newValue;
-        this.notify();
-        runEffects();
-        return this._value;
-      }
-    });
-    Object.defineProperty(Signal.prototype, "value", {
-      get() {
-        return this._value;
-      },
-      set(newValue) {
-        this._value = newValue;
-        return this._value;
-      }
-    });
-    Signal.prototype.subscribe = function (observer) {
-      if (!this.observers.includes(observer))
-        this.observers.push(observer);
-    }
-    Signal.prototype.notify = function () {
-      for (let observerIndex = 0; observerIndex < this.observers.length; observerIndex++) {
-        this.observers[observerIndex].notify();
-      }
-    }
-
-    /* Effect */
-    const EFFECT_OPTIONS = { defer: false };
-    function Effect(callback, options) {
-      this.callback = callback;
-      this.flags = STALE;
-      this.options = options || EFFECT_OPTIONS;
-      this.run();
-    }
-    Effect.prototype.toString = function() {
-      return "[object Effect]";
-    }
-    Effect.prototype.run = function () {
-      if (this.flags & RUNNING)
-        throw new Error("Loop detected");
-      if (this.flags & STALE) {
-        this.flags |= RUNNING;
-        let pContext = currentContext;
-        currentContext = this;
-        this.callback();
-        this.flags &= ~RUNNING;
-        currentContext = pContext;
-      }
-      this.flags &= ~STALE;
-    }
-    Effect.prototype.notify = function () {
-      if (!this.flags & STALE) {
-        this.flags |= STALE;
-        effectQueue.push(this);
-      }
-    }
-    function runEffects() {
-      for (let effectIndex = 0; effectIndex < effectQueue.length; effectIndex++) {
-        effectQueue[effectIndex].run();
-      }
-      effectQueue.length = 0;
-    }
-
-    /* Computed */
-    function Computed(callback) {
-      this.callback = callback;
-      this._value = undefined;
-      this.flags = STALE;
-      this.observers = [];
-    }
-    Computed.prototype.toString = function() {
-      return "[object Computed]";
-    }
-    Object.defineProperty(Computed.prototype, "$", {
-      get() {
-        if (this.flags & STALE) {
-          const pContext = currentContext;
-          currentContext = this;
-          this.refresh();
-          currentContext = pContext;
-        }
-        if (currentContext) {
-          this.subscribe(currentContext);
-        }
-        return this._value;
-      }
-    });
-    Computed.prototype.refresh = function () {
-      this._value = this.callback();
-      this.flags &= ~STALE;
-    }
-    Computed.prototype.subscribe = function (observer) {
-      if (!this.observers.includes(observer))
-        this.observers.push(observer);
-    }
-    Computed.prototype.notify = function () {
-      if (!this.flags & STALE) {
-        this.flags |= STALE;
-        for (let observerIndex = 0; observerIndex < this.observers.length; observerIndex++) {
-          this.observers[observerIndex].notify();
-        }
-      }
-    }
-    /* Create new state */
-    signal = function (value, options) {
-      return new Signal(value, options);
-    }
-    /* Create new effect */
-    effect = function (callback, options) {
-      return new Effect(callback, options);
-    }
-    /* Create new computed */
-    computed = function (callback) {
-      return new Computed(callback);
-    }
-  })();
-
-  /**
-   * Component API module
-   */
-  let mount, mountComponent;
-  (function () {
+    
     /* Create new render effect */
-    function createRenderEffect(callback) {
+    function createRenderEffect(callback, component) {
       /* 
        * Chache new effect. 
        * Component root node will be rendered 
@@ -776,7 +783,9 @@
        * with wrapped patcher function.
        */
       _effect.callback = function () {
+        plugins.openComponent.forEach(hook => hook(component));
         patchOuter(node, callback);
+        plugins.closeComponent.forEach(hook => hook(component));
       }
       return node;
     }
@@ -785,7 +794,7 @@
       plugins.openComponent.forEach(hook => hook(componentFunction, ...props));
       let component = componentFunction(...props);
       if (typeof component === 'function') {
-        component = createRenderEffect(component);
+        component = createRenderEffect(component, componentFunction);
       }
       plugins.closeComponent.forEach(hook => hook(componentFunction, ...props));
       return component;
@@ -844,6 +853,9 @@
       }
     }
   }
+
+
+
   //Expose API
   t.ready = ready;
   t.patch = patchInner;

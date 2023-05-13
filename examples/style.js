@@ -1,9 +1,16 @@
 const Counter = initialCount => {
+  let count = t.signal(initialCount);
+
+  const handleClick = () => {
+    count.$++;
+  }
+
   return (
     t('div'),
-      t('button'), t.class('active'),
+      t('button'),
+        t.on('click', handleClick),
         t('span'),
-          t.text`Click`,
+          t.text`Click ${count}`,
         t(),
       t(),
     t()
@@ -11,7 +18,7 @@ const Counter = initialCount => {
 }
 
 style(Counter)(
-  rule('span')`font-weight: 500;`,
+  rule('span')`font-weight: bold;`,
   rule('button')`
     background-color: #7777DD;
     border: none;
