@@ -1,7 +1,10 @@
+/**
+ * Hash router component.
+ */
 let Route, Router;
 (function () {
   if(!window.t)
-    throw "Cannot initialize.";
+    throw "Cannot initialize module.";
   //Get path object from route template 
   function parseRouteTemplate(template) {
     var i = 0,
@@ -27,7 +30,7 @@ let Route, Router;
    * Dynamic segments are enclosed in curly braces 
    * and will be passed as pathData after resolve.
    * @example
-   * t.route("main/{foo}/{bar}/view", view)
+   * Route('main/{foo}/{bar}/view', view)
    * @example
    * @param {string} template 
    * @param {function} action 
@@ -57,7 +60,6 @@ let Route, Router;
       params: path[1] ? getHashParameters(path[1]) : ""
     };
   }
-
   //Returns object if url.path matches route.path
   function tryRoute(hashPath, routePath) {
     var i = 0,
@@ -106,66 +108,15 @@ let Route, Router;
     //Route not found
     return false;
   }
-  //Apply route component
-  function applyRoute(route) {
-    if (typeof route.action !== "function") {
-      route.action.view(
-        route.action.data ? route.action.data() : {}, {
-        pathData: route.pathData || {},
-        pathParams: route.pathParams || {}
-      }
-      );
-    } else {
-      route.action({}, {
-        pathData: route.pathData || {},
-        pathParams: route.pathParams || {}
-      });
-    }
-  }
-  //Check router parameters before mount
-  function validateRouterOptions(options) {
-    if (options || typeof options == "object") {
-      //Set routing error handler
-      options.error = options.default || "default";
-      if (!options.routes || options.routes.length == 0) {
-        //Define routing error handler if router undefined or empty
-        console.warn("Router undefined or empty, defaults is used.");
-        options.routes = [t.route("default", {
-          view: noop
-        })];
-        options.default = "default";
-      } else {
-        //Define routing error handler if hendler is not defined
-        if (!resolveRoute(options.error, options.routes)) {
-          console.warn("Router has no '" + options.error + "' error handler, defaults is used.");
-          options.router.push(t.route(options.error, {
-            view: noop
-          }));
-        }
-      }
-      //Application is valid
-      return true;
-    } else {
-      //Application is NOT valid
-      return false;
-    }
-  }
   //Find route and redirect
   function handleHashChange(routes, defaultRoute) {
     var validRoute = resolveRoute(window.location.hash, routes),
-      defaultRoute = resolveRoute(defaultRoute, routes);
+      defaultRoute = validRoute || resolveRoute(defaultRoute, routes);
     if (validRoute) {
-      applyRoute(validRoute);
+      return validRoute;
     } else {
-      applyRoute(defaultRoute);
+      return defaultRoute;
     }
-  }
-  //Make router options from args
-  function makeRouterOptions(defaultRoute, ...routes) {
-    var options = {};
-    options.default = defaultRoute;
-    options.routes = routes;
-    return options;
   }
   /**
    * Creates a new router and adds hash change listener.
@@ -182,15 +133,13 @@ let Route, Router;
    * @param {string} default 
    * @param {array} routes 
    */
-  Router = function (options) {
-    options = arguments.length > 1 ?
-      makeRouterOptions(arguments) :
-      options;
-    if (!validateRouterOptions(options))
-      throw "Router options must be an object.";
-    handleHashChange(options.routes, options.default);
+  Router = function (defaultView, routes) {
+    const currentRoute = t.signal(handleHashChange(routes, defaultView));
     window.onhashchange = function () {
-      handleHashChange(options.routes, options.default);
+      currentRoute.$ = handleHashChange(routes, defaultView);
+    }
+    return () => {
+      currentRoute.$.action(currentRoute.value.pathData, currentRoute.value.pathParams);
     }
   }
 })();
