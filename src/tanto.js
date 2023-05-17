@@ -37,22 +37,22 @@
   /**
    * Component state module.
    */
-  let signal, computed, effect, isSignal;
+  let signalImpl, computedImpl, effectImpl, cleanupImpl, isSignal;
   (function () {
     /* Effect & computed state flags */
     const
       STALE = 1 << 0,
-      RUNNING = 1 << 1;
+      RUNNING = 1 << 1,
+      REMOVED = 1 << 2;
     /* Globals */
     let
       currentContext = null,
       effectQueue = [];
-
     /* Signal */
     const SIGNAL_OPTIONS = { equal: true };
     function Signal(value, options) {
       this._value = value;
-      this.observers = [];
+      this.targets = [];
       this.options = options || SIGNAL_OPTIONS;
     }
     Signal.prototype.toString = function() {
@@ -64,8 +64,7 @@
     };
     Object.defineProperty(Signal.prototype, "$", {
       get() {
-        if (currentContext)
-          this.subscribe(currentContext);
+        this.subscribe(currentContext);
         return this._value;
       },
       set(newValue) {
@@ -86,59 +85,119 @@
         return this._value;
       }
     });
-    Signal.prototype.subscribe = function (observer) {
-      if (!this.observers.includes(observer))
-        this.observers.push(observer);
+    Signal.prototype.addTarget = function(target){
+      if (!this.targets.includes(target))
+        this.targets.push(target);
+    }
+    Signal.prototype.subscribe = function () {
+      if (!currentContext) return;
+      this.addTarget(currentContext);
+      currentContext.addSource(this);
+    }
+    Signal.prototype.unsubscribe = function(target) {
+      let targets = [];
+      for(let tI = 0, tL = this.targets.length; tI < tL; tI++){
+        const targetAt = this.targets[tI];
+        if(targetAt !== target)
+          targets.push(target);
+      }
+      this.targets = targets;
     }
     Signal.prototype.notify = function () {
-      for (let observerIndex = 0; observerIndex < this.observers.length; observerIndex++) {
-        this.observers[observerIndex].notify();
+      for (let tI = 0; tI < this.targets.length; tI++) {
+        this.targets[tI].notify();
       }
     }
 
     /* Effect */
     const EFFECT_OPTIONS = { defer: false };
-    function Effect(callback, options) {
-      this.callback = callback;
+    function Effect(fn, options) {
+      this.fn = fn;
+      this.sources = [];
+      this.hosted = [];
+      this.cleanups = null;
       this.flags = STALE;
       this.options = options || EFFECT_OPTIONS;
       this.run();
-    }
-    Effect.prototype.toString = function() {
-      return "[object Effect]";
     }
     Effect.prototype.run = function () {
       if (this.flags & RUNNING)
         throw new Error("Loop detected");
       if (this.flags & STALE) {
         this.flags |= RUNNING;
+        this.addHosted();
         let pContext = currentContext;
         currentContext = this;
-        this.callback();
+        this.fn();
         this.flags &= ~RUNNING;
         currentContext = pContext;
       }
       this.flags &= ~STALE;
     }
     Effect.prototype.notify = function () {
-      if (!this.flags & STALE) {
-        this.flags |= STALE;
-        effectQueue.push(this);
-      }
+      if (this.flags & STALE || this.flags & REMOVED) return;
+      this.flags |= STALE;
+      this.clearHosted();
+      effectQueue.push(this);
     }
     function runEffects() {
-      for (let effectIndex = 0; effectIndex < effectQueue.length; effectIndex++) {
-        effectQueue[effectIndex].run();
+      for (let eI = 0, eQL = effectQueue.length; eI < eQL; eI++) {
+        effectQueue[eI].run();
       }
       effectQueue.length = 0;
     }
+    Effect.prototype.addSource = function(source){
+      if (!this.sources.includes(source))
+        this.sources.push(source);
+    }
+    Effect.prototype.addHosted = function(){
+      if(currentContext) currentContext.hosted.push(this);
+    }
+    Effect.prototype.runCleanups = function(){
+      for (let cI = 0, cL = this.cleanups.length; cI < cL; cI++) {
+        this.cleanups[cI]();
+      }
+      this.cleanups.length = 0;
+    }
+    Effect.prototype.clearHosted = function(){
+      for (let hI = 0, hL = this.hosted.length; hI < hL; hI++) {
+        const hosted = this.hosted[hI];
+        hosted.clear();
+      }
+      this.hosted.length = 0;
+    }
+    Effect.prototype.unsubscribe = function(){
+      for (let sI = 0, sL = this.sources.length; sI < sL; sI++) {
+        this.sources[sI].unsubscribe(this);
+      }
+      this.sources.length = 0;
+    }
+    Effect.prototype.clear = function(){
+      this.fn = undefined;
+      this.flags |= REMOVED;
+      this.options = undefined;
+      this.runCleanups();
+      this.unsubscribe();
+      this.clearHosted();
+    }
+    Effect.prototype.toString = function() {
+      return "[object Effect]";
+    }
+    cleanupImpl = function(fn){
+      if(!currentContext)
+        throw "Cannot add cleanup function without context.";
+      if(currentContext.cleanups === null) 
+        currentContext.cleanups = [fn];
+      else
+        currentContext.cleanups.push(fn);
+    }
 
     /* Computed */
-    function Computed(callback) {
-      this.callback = callback;
+    function Computed(fn) {
+      this.fn = fn;
       this._value = undefined;
       this.flags = STALE;
-      this.observers = [];
+      this.targets = [];
     }
     Computed.prototype.toString = function() {
       return "[object Computed]";
@@ -158,32 +217,32 @@
       }
     });
     Computed.prototype.refresh = function () {
-      this._value = this.callback();
+      this._value = this.fn();
       this.flags &= ~STALE;
     }
-    Computed.prototype.subscribe = function (observer) {
-      if (!this.observers.includes(observer))
-        this.observers.push(observer);
+    Computed.prototype.subscribe = function (target) {
+      if (!this.targets.includes(target))
+        this.targets.push(target);
     }
     Computed.prototype.notify = function () {
       if (!this.flags & STALE) {
         this.flags |= STALE;
-        for (let observerIndex = 0; observerIndex < this.observers.length; observerIndex++) {
-          this.observers[observerIndex].notify();
+        for (let tI = 0, tL = this.targets.length ; tI < tL; tI++) {
+          this.targets[tI].notify();
         }
       }
     }
     /* Create new state */
-    signal = function (value, options) {
+    signalImpl = function (value, options) {
       return new Signal(value, options);
     }
     /* Create new effect */
-    effect = function (callback, options) {
-      return new Effect(callback, options);
+    effectImpl = function (fn, options) {
+      return new Effect(fn, options);
     }
     /* Create new computed */
-    computed = function (callback) {
-      return new Computed(callback);
+    computedImpl = function (fn) {
+      return new Computed(fn);
     }
   })();
 
@@ -671,17 +730,17 @@
       plugins.setAttribute.forEach(hook => hook(name, value));
     }
     /* Sets attribute value or creates a binding. */
-    function interpolateAttributeExpression(attribute, expression, callback) {
-      callback = callback || noop;
+    function interpolateAttributeExpression(attribute, expression, fn) {
+      fn = fn || noop;
       if (typeof expression === 'function') {
         setCurrentNodeBinding(function () {
           setCurrentNodeAttributeNS(attribute, expression());
-          callback();
+          fn();
         });
         return currentNode;
       }
       setCurrentNodeAttributeNS(attribute, expression);
-      callback();
+      fn();
       return currentNode;
     }
     /* Set current node attribute with interpolation. */
@@ -691,8 +750,8 @@
       interpolateAttributeExpression('class', value);
     }
     /* Set current node event listener. */
-    setCurrentNodeListener = function (name, callback, options) {
-      currentNode.addEventListener(name, callback, options);
+    setCurrentNodeListener = function (name, fn, options) {
+      currentNode.addEventListener(name, fn, options);
     }
     /* Returns true if object is instance of signal. */
     function isBinding(data) {
@@ -732,16 +791,16 @@
       TEXT_NODE_HANLDER = createNodeTextContentHandler(Node.TEXT_NODE),
       COMMENT_NODE_HANLDER = createNodeTextContentHandler(Node.COMMENT_NODE);
     /* Set current node bindings. */
-    setCurrentNodeBinding = function (callback) {
+    setCurrentNodeBinding = function (fn) {
       let 
         _currentNode = currentNode,
         _currentComponent = currentComponent;
-      effect(function () {
+      effectImpl(function () {
         let pCurrentNode = currentNode,
             pCurrentComponent = currentComponent;
         currentNode = _currentNode;
         currentComponent = _currentComponent;
-        callback.call(_currentNode);
+        fn.call(_currentNode);
         currentNode = pCurrentNode;
         currentComponent = pCurrentComponent;
       });
@@ -766,25 +825,25 @@
     }
     
     /* Create new render effect */
-    function createRenderEffect(callback, component) {
+    function createRenderEffect(fn, component) {
       /* 
        * Chache new effect. 
        * Component root node will be rendered 
        * with common effect call.
        */
-      let _effect = effect(callback);
+      let _effect = effectImpl(fn);
       /* 
        * Save rendered node.
        */
       let node = getPreviousNode();
       /* 
-       * Replace callback.
-       * Effect's initial callback to be replaced
+       * Replace fn.
+       * Effect's initial fn to be replaced
        * with wrapped patcher function.
        */
-      _effect.callback = function () {
+      _effect.fn = function () {
         plugins.openComponent.forEach(hook => hook(component));
-        patchOuter(node, callback);
+        patchOuter(node, fn);
         plugins.closeComponent.forEach(hook => hook(component));
       }
       return node;
@@ -863,9 +922,10 @@
   t.comment = commentNode;
   t.clear = clearNode;
   t.mount = mount;
-  t.signal = signal;
-  t.effect = effect;
-  t.computed = computed;
+  t.signal = signalImpl;
+  t.effect = effectImpl;
+  t.computed = computedImpl;
+  t.cleanup = cleanupImpl;;
   t.attr = setCurrentNodeAttribute;
   t.class = setCurrentNodeClassAttribute;
   t.on = setCurrentNodeListener;
