@@ -154,6 +154,7 @@
       if(currentContext) currentContext.hosted.push(this);
     }
     Effect.prototype.runCleanups = function(){
+      if(!this.cleanups) return;
       for (let cI = 0, cL = this.cleanups.length; cI < cL; cI++) {
         this.cleanups[cI]();
       }
