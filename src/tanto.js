@@ -2,8 +2,10 @@
 (function () {
   'use strict'
 
+
+
   /* Utilies. */
-  function noop(){};
+  function noop() { };
   function ready(f) {
     if (document.readyState != 'loading') {
       f();
@@ -24,9 +26,9 @@
       closeNode: [],
       setAttribute: []
     }
-    plugin = function (hooks){
-      for(let key in plugins){
-        if(hooks[key])
+    plugin = function (hooks) {
+      for (let key in plugins) {
+        if (hooks[key])
           plugins[key].push(hooks[key])
       }
     }
@@ -37,7 +39,15 @@
   /**
    * Component state module.
    */
-  let signalImpl, computedImpl, effectImpl, cleanupImpl, isSignal;
+  let
+    signalImpl,
+    computedImpl,
+    effectImpl,
+    cleanupImpl,
+    getEffectContext,
+    returnEffect,
+    isSignal;
+
   (function () {
     /* Effect & computed state flags */
     const
@@ -55,11 +65,8 @@
       this.targets = [];
       this.options = options || SIGNAL_OPTIONS;
     }
-    Signal.prototype.toString = function() {
-      return "[object Signal]";
-    }
     /* Returns true if given object is instance of Signal */
-    isSignal = function(object){
+    isSignal = function (object) {
       return object instanceof Signal;
     };
     Object.defineProperty(Signal.prototype, "$", {
@@ -85,7 +92,7 @@
         return this._value;
       }
     });
-    Signal.prototype.addTarget = function(target){
+    Signal.prototype.addTarget = function (target) {
       if (!this.targets.includes(target))
         this.targets.push(target);
     }
@@ -94,11 +101,11 @@
       this.addTarget(currentContext);
       currentContext.addSource(this);
     }
-    Signal.prototype.unsubscribe = function(target) {
+    Signal.prototype.unsubscribe = function (target) {
       let targets = [];
-      for(let tI = 0, tL = this.targets.length; tI < tL; tI++){
+      for (let tI = 0, tL = this.targets.length; tI < tL; tI++) {
         const targetAt = this.targets[tI];
-        if(targetAt !== target)
+        if (targetAt !== target)
           targets.push(target);
       }
       this.targets = targets;
@@ -107,6 +114,13 @@
       for (let tI = 0; tI < this.targets.length; tI++) {
         this.targets[tI].notify();
       }
+    }
+    Signal.prototype.toString = function () {
+      return "[object Signal]";
+    }
+    /* Create new state. */
+    signalImpl = function (value, options) {
+      return new Signal(value, options);
     }
 
     /* Effect */
@@ -146,51 +160,58 @@
       }
       effectQueue.length = 0;
     }
-    Effect.prototype.addSource = function(source){
+    Effect.prototype.addSource = function (source) {
       if (!this.sources.includes(source))
         this.sources.push(source);
     }
-    Effect.prototype.addHosted = function(){
-      if(currentContext) currentContext.hosted.push(this);
+    Effect.prototype.addHosted = function () {
+      if (!currentContext) return;
+      if (!currentContext.hosted)
+        throw 'Computed cannot have nested effects.'
+      currentContext.hosted.push(this);
     }
-    Effect.prototype.runCleanups = function(){
-      if(!this.cleanups) return;
+    Effect.prototype.runCleanups = function () {
+      if (!this.cleanups) return;
       for (let cI = 0, cL = this.cleanups.length; cI < cL; cI++) {
         this.cleanups[cI]();
       }
       this.cleanups.length = 0;
     }
-    Effect.prototype.clearHosted = function(){
+    Effect.prototype.clearHosted = function () {
       for (let hI = 0, hL = this.hosted.length; hI < hL; hI++) {
         const hosted = this.hosted[hI];
         hosted.clear();
       }
       this.hosted.length = 0;
     }
-    Effect.prototype.unsubscribe = function(){
+    Effect.prototype.unsubscribeFromSources = function () {
       for (let sI = 0, sL = this.sources.length; sI < sL; sI++) {
         this.sources[sI].unsubscribe(this);
       }
       this.sources.length = 0;
     }
-    Effect.prototype.clear = function(){
+    Effect.prototype.clear = function () {
       this.fn = undefined;
       this.flags |= REMOVED;
       this.options = undefined;
       this.runCleanups();
-      this.unsubscribe();
+      this.unsubscribeFromSources();
       this.clearHosted();
     }
-    Effect.prototype.toString = function() {
+    /* Create new effect and return it's instance. (For internal usage only)*/
+    returnEffect = function (fn, options) {
+      return new Effect(fn, options);
+    }
+    /* Returns current effect context (For internal usage only)*/
+    getEffectContext = function () {
+      return currentContext;
+    }
+    Effect.prototype.toString = function () {
       return "[object Effect]";
     }
-    cleanupImpl = function(fn){
-      if(!currentContext)
-        throw "Cannot add cleanup function without context.";
-      if(currentContext.cleanups === null) 
-        currentContext.cleanups = [fn];
-      else
-        currentContext.cleanups.push(fn);
+    /* Create new effect. */
+    effectImpl = function (fn, options) {
+      new Effect(fn, options);
     }
 
     /* Computed */
@@ -198,10 +219,8 @@
       this.fn = fn;
       this._value = undefined;
       this.flags = STALE;
+      this.sources = [];
       this.targets = [];
-    }
-    Computed.prototype.toString = function() {
-      return "[object Computed]";
     }
     Object.defineProperty(Computed.prototype, "$", {
       get() {
@@ -217,33 +236,55 @@
         return this._value;
       }
     });
+    Computed.prototype.addSource = function (source) {
+      if (!this.sources.includes(source))
+        this.sources.push(source);
+    }
+    Computed.prototype.addTarget = function (target) {
+      if (!this.targets.includes(target))
+        this.targets.push(target);
+    }
+    Computed.prototype.subscribe = function () {
+      if (!currentContext) return;
+      this.addTarget(currentContext);
+      currentContext.addSource(this);
+    }
     Computed.prototype.refresh = function () {
       this._value = this.fn();
       this.flags &= ~STALE;
     }
-    Computed.prototype.subscribe = function (target) {
-      if (!this.targets.includes(target))
-        this.targets.push(target);
-    }
     Computed.prototype.notify = function () {
       if (!this.flags & STALE) {
         this.flags |= STALE;
-        for (let tI = 0, tL = this.targets.length ; tI < tL; tI++) {
+        for (let tI = 0, tL = this.targets.length; tI < tL; tI++) {
           this.targets[tI].notify();
         }
       }
     }
-    /* Create new state */
-    signalImpl = function (value, options) {
-      return new Signal(value, options);
+    Computed.prototype.unsubscribe = function (target) {
+      let targets = [];
+      for (let tI = 0, tL = this.targets.length; tI < tL; tI++) {
+        const targetAt = this.targets[tI];
+        if (targetAt !== target)
+          targets.push(target);
+      }
+      this.targets = targets;
     }
-    /* Create new effect */
-    effectImpl = function (fn, options) {
-      return new Effect(fn, options);
+    Computed.prototype.toString = function () {
+      return "[object Computed]";
     }
-    /* Create new computed */
+    /* Create new computed. */
     computedImpl = function (fn) {
       return new Computed(fn);
+    }
+    /* Create new cleanup. */
+    cleanupImpl = function (fn) {
+      if (!currentContext)
+        throw "Cannot add cleanup function without context.";
+      if (currentContext.cleanups === null)
+        currentContext.cleanups = [fn];
+      else
+        currentContext.cleanups.push(fn);
     }
   })();
 
@@ -269,8 +310,8 @@
     setCurrentNodeListener,
     setCurrentNodeBinding,
     setCurrentNodeInnerText;
-  let 
-    mount, 
+  let
+    mount,
     mountComponent;
 
   (function () {
@@ -752,7 +793,13 @@
     }
     /* Set current node event listener. */
     setCurrentNodeListener = function (name, fn, options) {
-      currentNode.addEventListener(name, fn, options);
+      let node = currentNode;
+      node.addEventListener(name, fn, options);
+      let context = getEffectContext();
+      if (!context) return;
+      cleanupImpl(function () {
+        node.removeEventListener(name, fn, options);
+      })
     }
     /* Returns true if object is instance of signal. */
     function isBinding(data) {
@@ -793,12 +840,12 @@
       COMMENT_NODE_HANLDER = createNodeTextContentHandler(Node.COMMENT_NODE);
     /* Set current node bindings. */
     setCurrentNodeBinding = function (fn) {
-      let 
+      let
         _currentNode = currentNode,
         _currentComponent = currentComponent;
       effectImpl(function () {
         let pCurrentNode = currentNode,
-            pCurrentComponent = currentComponent;
+          pCurrentComponent = currentComponent;
         currentNode = _currentNode;
         currentComponent = _currentComponent;
         fn.call(_currentNode);
@@ -811,7 +858,7 @@
      * literal into paragraph.
      */
     setCurrentNodeInnerText = function (elements, ...expressions) {
-      if(expressions.length === 0) {
+      if (expressions.length === 0) {
         textNode(elements);
         return currentNode;
       }
@@ -824,7 +871,7 @@
       }
       return currentNode;
     }
-    
+
     /* Create new render effect */
     function createRenderEffect(fn, component) {
       /* 
@@ -832,7 +879,7 @@
        * Component root node will be rendered 
        * with common effect call.
        */
-      let _effect = effectImpl(fn);
+      let _effect = returnEffect(fn);
       /* 
        * Save rendered node.
        */
