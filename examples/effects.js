@@ -20,3 +20,19 @@ t.effect(()=>{
     });
   });
 });
+
+setTimeout(()=>{
+  testSignal.$ = 321;
+}, 3000);
+
+let firstName = t.signal('John')
+let lastName = t.signal('Doe')
+
+let fullName = t.computed(()=> firstName.$ + ' ' + lastName.$)
+t.effect(()=>{
+  console.log(fullName.$);
+});
+
+setTimeout(()=>{
+  firstName.$ = 'Jane';
+}, 5000)
