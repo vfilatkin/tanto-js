@@ -55,9 +55,6 @@
       this.targets = [];
       this.options = options || SIGNAL_OPTIONS;
     }
-    Signal.prototype.toString = function() {
-      return "[object Signal]";
-    }
     /* Returns true if given object is instance of Signal */
     isSignal = function(object){
       return object instanceof Signal;
@@ -108,6 +105,9 @@
         this.targets[tI].notify();
       }
     }
+    Signal.prototype.toString = function() {
+      return "[object Signal]";
+    }
 
     /* Effect */
     const EFFECT_OPTIONS = { defer: false };
@@ -151,7 +151,10 @@
         this.sources.push(source);
     }
     Effect.prototype.addHosted = function(){
-      if(currentContext) currentContext.hosted.push(this);
+      if(!currentContext) return;
+      if(!currentContext.hosted) 
+        throw 'Computed cannot have nested effects.'
+      currentContext.hosted.push(this);
     }
     Effect.prototype.runCleanups = function(){
       if(!this.cleanups) return;
@@ -167,7 +170,7 @@
       }
       this.hosted.length = 0;
     }
-    Effect.prototype.unsubscribe = function(){
+    Effect.prototype.unsubscribeFromSources = function(){
       for (let sI = 0, sL = this.sources.length; sI < sL; sI++) {
         this.sources[sI].unsubscribe(this);
       }
@@ -178,19 +181,11 @@
       this.flags |= REMOVED;
       this.options = undefined;
       this.runCleanups();
-      this.unsubscribe();
+      this.unsubscribeFromSources();
       this.clearHosted();
     }
     Effect.prototype.toString = function() {
       return "[object Effect]";
-    }
-    cleanupImpl = function(fn){
-      if(!currentContext)
-        throw "Cannot add cleanup function without context.";
-      if(currentContext.cleanups === null) 
-        currentContext.cleanups = [fn];
-      else
-        currentContext.cleanups.push(fn);
     }
 
     /* Computed */
@@ -198,10 +193,8 @@
       this.fn = fn;
       this._value = undefined;
       this.flags = STALE;
+      this.sources = [];
       this.targets = [];
-    }
-    Computed.prototype.toString = function() {
-      return "[object Computed]";
     }
     Object.defineProperty(Computed.prototype, "$", {
       get() {
@@ -217,13 +210,22 @@
         return this._value;
       }
     });
+    Computed.prototype.addSource = function(source){
+      if (!this.sources.includes(source))
+        this.sources.push(source);
+    }
+    Computed.prototype.addTarget = function(target){
+      if (!this.targets.includes(target))
+        this.targets.push(target);
+    }
+    Computed.prototype.subscribe = function () {
+      if (!currentContext) return;
+      this.addTarget(currentContext);
+      currentContext.addSource(this);
+    }
     Computed.prototype.refresh = function () {
       this._value = this.fn();
       this.flags &= ~STALE;
-    }
-    Computed.prototype.subscribe = function (target) {
-      if (!this.targets.includes(target))
-        this.targets.push(target);
     }
     Computed.prototype.notify = function () {
       if (!this.flags & STALE) {
@@ -233,17 +235,39 @@
         }
       }
     }
-    /* Create new state */
+    Computed.prototype.unsubscribe = function(target) {
+      let targets = [];
+      for(let tI = 0, tL = this.targets.length; tI < tL; tI++){
+        const targetAt = this.targets[tI];
+        if(targetAt !== target)
+          targets.push(target);
+      }
+      this.targets = targets;
+    }
+    Computed.prototype.toString = function() {
+      return "[object Computed]";
+    }
+
+    /* Create new state. */
     signalImpl = function (value, options) {
       return new Signal(value, options);
     }
-    /* Create new effect */
+    /* Create new effect. */
     effectImpl = function (fn, options) {
       return new Effect(fn, options);
     }
-    /* Create new computed */
+    /* Create new computed. */
     computedImpl = function (fn) {
       return new Computed(fn);
+    }
+    /* Create new cleanup. */
+    cleanupImpl = function(fn){
+      if(!currentContext)
+        throw "Cannot add cleanup function without context.";
+      if(currentContext.cleanups === null) 
+        currentContext.cleanups = [fn];
+      else
+        currentContext.cleanups.push(fn);
     }
   })();
 
