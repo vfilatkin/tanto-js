@@ -1,7 +1,6 @@
 (function () {
   'use strict'
 
-  function noop() { };
   function ready(f) {
     if (document.readyState != 'loading') {
       f();
@@ -20,6 +19,7 @@
       closeNode: [],
       setAttribute: []
     }
+
     moduleImpl = function (hooks) {
       for (let key in modules) {
         if (hooks[key])
@@ -40,24 +40,30 @@
     getEffectContext,
     returnEffect,
     isSignal;
+
   (function () {
     /* Effect & computed state flags */
     const
       STALE = 1 << 0,
       RUNNING = 1 << 1,
       REMOVED = 1 << 2;
+
     let
       currentContext = null,
       effectQueue = [];
+
     const SIGNAL_OPTIONS = { equal: true };
+
     function Signal(value, options) {
       this._value = value;
       this.targets = [];
       this.options = options || SIGNAL_OPTIONS;
     }
+
     isSignal = function (object) {
       return object instanceof Signal;
     };
+
     Object.defineProperty(Signal.prototype, "$", {
       get() {
         this.subscribe(currentContext);
@@ -72,6 +78,7 @@
         return this._value;
       }
     });
+
     Object.defineProperty(Signal.prototype, "value", {
       get() {
         return this._value;
@@ -81,10 +88,12 @@
         return this._value;
       }
     });
+
     Signal.prototype.addTarget = function (target) {
       if (!this.targets.includes(target))
         this.targets.push(target);
     }
+
     Signal.prototype.subscribe = function () {
       if (!currentContext) return;
       if (currentContext instanceof Effect) {
@@ -92,6 +101,7 @@
         currentContext.addSource(this);
       }
     }
+
     Signal.prototype.unsubscribe = function (target) {
       let targets = [];
       for (let tI = 0, tL = this.targets.length; tI < tL; tI++) {
@@ -101,19 +111,23 @@
       }
       this.targets = targets;
     }
+
     Signal.prototype.notify = function () {
       for (let tI = 0; tI < this.targets.length; tI++) {
         this.targets[tI].notify();
       }
     }
+
     Signal.prototype.toString = function () {
       return "[object Signal]";
     }
+
     signalImpl = function (value, options) {
       return new Signal(value, options);
     }
 
     const EFFECT_OPTIONS = { defer: false };
+
     function Effect(fn, options) {
       this.fn = fn;
       this.sources = [];
@@ -123,6 +137,7 @@
       this.options = options || EFFECT_OPTIONS;
       this.run();
     }
+
     Effect.prototype.run = function () {
       if (this.flags & RUNNING)
         throw new Error("Loop detected");
@@ -137,28 +152,33 @@
       }
       this.flags &= ~STALE;
     }
+
     Effect.prototype.notify = function () {
       if (this.flags & STALE || this.flags & REMOVED) return;
       this.flags |= STALE;
       this.clearHosted();
       effectQueue.push(this);
     }
+
     function runEffects() {
       for (let eI = 0, eQL = effectQueue.length; eI < eQL; eI++) {
         effectQueue[eI].run();
       }
       effectQueue.length = 0;
     }
+
     Effect.prototype.addSource = function (source) {
       if (!this.sources.includes(source))
         this.sources.push(source);
     }
+
     Effect.prototype.addHosted = function () {
       if (!currentContext) return;
       if (!currentContext.hosted)
         throw 'Computed cannot have nested effects.'
       currentContext.hosted.push(this);
     }
+
     Effect.prototype.runCleanups = function () {
       if (!this.cleanups) return;
       for (let cI = 0, cL = this.cleanups.length; cI < cL; cI++) {
@@ -166,6 +186,7 @@
       }
       this.cleanups.length = 0;
     }
+
     Effect.prototype.clearHosted = function () {
       for (let hI = 0, hL = this.hosted.length; hI < hL; hI++) {
         const hosted = this.hosted[hI];
@@ -173,12 +194,14 @@
       }
       this.hosted.length = 0;
     }
+
     Effect.prototype.unsubscribeFromSources = function () {
       for (let sI = 0, sL = this.sources.length; sI < sL; sI++) {
         this.sources[sI].unsubscribe(this);
       }
       this.sources.length = 0;
     }
+
     Effect.prototype.clear = function () {
       this.fn = undefined;
       this.flags |= REMOVED;
@@ -187,15 +210,19 @@
       this.unsubscribeFromSources();
       this.clearHosted();
     }
+
     returnEffect = function (fn, options) {
       return new Effect(fn, options);
     }
+    
     getEffectContext = function () {
       return currentContext;
     }
+
     Effect.prototype.toString = function () {
       return "[object Effect]";
     }
+
     effectImpl = function (fn, options) {
       new Effect(fn, options);
     }
@@ -209,12 +236,14 @@
       fn();
       currentContext = pContext;
     }
+
     Root.prototype.addHosted = function () {
       if (!currentContext) return;
       if (!currentContext.hosted)
         throw 'Computed cannot have roots.'
       currentContext.hosted.push(this);
     }
+
     Root.prototype.runCleanups = function () {
       if (!this.cleanups) return;
       for (let cI = 0, cL = this.cleanups.length; cI < cL; cI++) {
@@ -222,6 +251,7 @@
       }
       this.cleanups.length = 0;
     }
+
     Root.prototype.clearHosted = function () {
       for (let hI = 0, hL = this.hosted.length; hI < hL; hI++) {
         const hosted = this.hosted[hI];
@@ -229,10 +259,12 @@
       }
       this.hosted.length = 0;
     }
+
     Root.prototype.clear = function () {
       this.runCleanups();
       this.clearHosted();
     }
+
     rootImpl = function (fn) {
       new Root(fn);
     }
@@ -244,6 +276,7 @@
       this.sources = [];
       this.targets = [];
     }
+
     Object.defineProperty(Computed.prototype, "$", {
       get() {
         if (this.flags & STALE) {
@@ -258,23 +291,28 @@
         return this._value;
       }
     });
+
     Computed.prototype.addSource = function (source) {
       if (!this.sources.includes(source))
         this.sources.push(source);
     }
+
     Computed.prototype.addTarget = function (target) {
       if (!this.targets.includes(target))
         this.targets.push(target);
     }
+
     Computed.prototype.subscribe = function () {
       if (!currentContext) return;
       this.addTarget(currentContext);
       currentContext.addSource(this);
     }
+
     Computed.prototype.refresh = function () {
       this._value = this.fn();
       this.flags &= ~STALE;
     }
+    
     Computed.prototype.notify = function () {
       if (!this.flags & STALE) {
         this.flags |= STALE;
@@ -283,6 +321,7 @@
         }
       }
     }
+
     Computed.prototype.unsubscribe = function (target) {
       let targets = [];
       for (let tI = 0, tL = this.targets.length; tI < tL; tI++) {
@@ -292,12 +331,15 @@
       }
       this.targets = targets;
     }
+
     Computed.prototype.toString = function () {
       return "[object Computed]";
     }
+
     computedImpl = function (fn) {
       return new Computed(fn);
     }
+
     cleanupImpl = function (fn) {
       if (!currentContext)
         throw "Cannot add cleanup function without context.";
@@ -325,6 +367,7 @@
     setCurrentNodeListener,
     setCurrentNodeBinding,
     createTextNodes;
+
   let
     mount,
     mountComponent;
@@ -404,6 +447,7 @@
         return element;
       }
     }
+
     //Inner patcher.
     patchInner = Patcher(function (patchFn) {
       currentNode = currentRootNode;
@@ -422,73 +466,10 @@
       return tag1.toLowerCase() === tag2.toLowerCase();
     }
 
-    //Returns two arrays. First contains used keys, second contains unused.
-    function diffKeys(aKeys, bKeys) {
-      var
-        used = [],
-        unused = [];
-      aKeys.forEach(function (aKey) {
-        var index = bKeys.indexOf(aKey);
-        if (index === -1) {
-          unused.push(aKey)
-        } else {
-          used.push(aKey)
-        }
+    function clearAttributes(node) {
+      node.getAttributeNames().forEach(function(name){
+        node.removeAttribute(name);
       })
-      return [used, unused]
-    }
-    //Returns the keys and flag of the operation needed to resolve the differences.
-    function diffObjectKeys(aObj, bObj) {
-      var
-        flag,
-        used,
-        unused,
-        aKeys = Object.keys(aObj),
-        bKeys = Object.keys(bObj);
-      if (aKeys.length >= bKeys.length) {
-        //The difference is negative. Need to delete keys.
-        [used, unused] = diffKeys(aKeys, bKeys)
-        flag = false
-      } else {
-        //The difference is positive. Need to add keys.
-        [used, unused] = diffKeys(bKeys, aKeys)
-        flag = true
-      }
-      return [flag, used, unused]
-    }
-    //Get array of node's current attributes
-    function getNodeCurrentAttributes(node) {
-      var
-        currentAttributes = {},
-        attributes = node.attributes;
-      for (let attribute of attributes) {
-        currentAttributes[attribute.name] = attribute.value
-      }
-      return currentAttributes;
-    }
-    function setNodeAttribute(node, name, value) {
-      node.setAttribute(name, value)
-    }
-    function removeNodeAttribute(node, name) {
-      node.removeAttribute(name)
-    }
-    //Update node attributes
-    function updateNodeAttributes(node, keys, newAttributes, updateFn) {
-      keys.forEach(function (key) {
-        updateFn(node, key, newAttributes[key])
-      });
-    }
-    //Assign attributes and listeners
-    function assignElementAttributes(node, newAttributes) {
-      newAttributes = newAttributes || {}
-      var oldAttributes = getNodeCurrentAttributes(node);
-      var [flag, used, unused] = diffObjectKeys(oldAttributes, newAttributes)
-      updateNodeAttributes(node, used, newAttributes, setNodeAttribute)
-      if (flag) {
-        updateNodeAttributes(node, unused, newAttributes, setNodeAttribute)
-      } else {
-        updateNodeAttributes(node, unused, newAttributes, removeNodeAttribute)
-      }
     }
 
     function setPatcherNamespace(namespaceURI) {
@@ -539,6 +520,7 @@
         parent.removeChild(child);
       } while (child != node)
     }
+
     function removeUnopened() {
       var unopened;
       if (previousNode) {
@@ -548,6 +530,7 @@
         }
       }
     }
+
     function buildPatch(parent, newNode) {
       if (patchRoot) {
         insertNode(currentNode, newNode);
@@ -558,6 +541,7 @@
       }
       return newNode;
     }
+
     function applyPatch() {
       if (currentNode === patchRoot) {
         if (patchParent.nodeType !== patchRoot.nodeType) {
@@ -569,6 +553,7 @@
         patchRoot = null;
       }
     }
+
     //Move to parent element and try to apply patch.
     function exitNode() {
       defaultPatcherNamespace();
@@ -576,6 +561,7 @@
       previousNode = currentNode;
       currentNode = currentNode.parentNode;
     }
+
     function updateNode(tagName, nodeType, nodeData) {
       if (currentNode.nodeType === nodeType) {
         switch (currentNode.nodeType) {
@@ -583,7 +569,7 @@
             if (!isSameTag(currentNode.tagName, tagName)) {
               currentNode = replaceNode(currentNode, createElementNode(tagName));
             }
-            assignElementAttributes(currentNode, nodeData)
+            clearAttributes(currentNode)
             return
           case Node.TEXT_NODE:
           case Node.COMMENT_NODE:
@@ -594,7 +580,7 @@
         switch (nodeType) {
           case Node.ELEMENT_NODE:
             currentNode = replaceNode(currentNode, createElementNode(tagName));
-            assignElementAttributes(currentNode, nodeData)
+            clearAttributes(currentNode)
             return
           case Node.TEXT_NODE:
             currentNode = replaceNode(currentNode, document.createTextNode(nodeData));
@@ -605,6 +591,7 @@
         }
       }
     }
+
     /**
      * Enter current node
      */
@@ -619,7 +606,7 @@
         switch (nodeType) {
           case Node.ELEMENT_NODE:
             currentNode = buildPatch(currentNode, createElementNode(tagName));
-            assignElementAttributes(currentNode, nodeData);
+            clearAttributes(currentNode);
             return
           case Node.TEXT_NODE:
             currentNode = insertNode(currentNode, document.createTextNode(nodeData));
@@ -633,6 +620,7 @@
         updateNode(tagName, nodeType, nodeData)
       }
     }
+
     /**
      * Main patcher navigation method.
      */
@@ -668,6 +656,7 @@
         return
       }
     }
+
     //Push new command and navigate patcher.
     function pushCommand(command, tagName, nodeType, nodeData, namespaceURI) {
       previousCommand = currentCommand;
@@ -687,39 +676,46 @@
       modules.closeNode.forEach(hook => hook());
       return node;
     }
+
     /* Creates an effect for text binding. */
     function textContentBinding(binding) {
       setCurrentNodeBinding(function () {
         this.textContent = binding.$;
       });
     }
+
     /**
      * Creates a new text node or updates existing.
      */
     function textNode(value) {
       return TEXT_NODE_HANLDER(value);
     }
+
     /**
      * Creates a new comment node or updates existing.
      * @example 
      * t.comment('foo');
      * @example
      */
+
     commentNode = function (value) {
       return COMMENT_NODE_HANLDER(value);
     }
+
     /**
      * Removes child nodes.
      * @example 
      * t.clear();
      * @example
      */
+
     clearNode = function () {
       var node = currentNode.firstChild;
       if (node) {
         removeNodesFrom(node);
       }
     }
+
     /**
      * Retruns or sets current node.
      * To set node - just pass new node value as parameter.
@@ -737,10 +733,12 @@
       if (node) return currentNode = node;
       return currentNode;
     }
+
     /* Get current DOM index. */
     getPreviousNode = function () {
       return previousNode;
     }
+
     /* Set current node attribute. */
     function setCurrentNodeAttributeNS(name, value) {
       if (namespace)
@@ -749,6 +747,7 @@
         currentNode.setAttribute(name, value);
       modules.setAttribute.forEach(hook => hook(name, value));
     }
+
     /* Sets attribute value or creates a binding. */
     function interpolateAttributeExpression(attribute, expression) {
       if (typeof expression === 'function') {
@@ -760,12 +759,15 @@
       setCurrentNodeAttributeNS(attribute, expression);
       return currentNode;
     }
+
     /* Set current node attribute with interpolation. */
     setCurrentNodeAttribute = interpolateAttributeExpression;
+
     /* Set current node 'class' attribute with interpolation. */
     setCurrentNodeClassAttribute = function (value) {
       interpolateAttributeExpression('class', value);
     }
+
     /* Set current node event listener. */
     setCurrentNodeListener = function (name, fn, options) {
       let node = currentNode;
@@ -776,6 +778,7 @@
         node.removeEventListener(name, fn, options);
       })
     }
+
     /* Resolves text content binding. */
     function createNodeTextContentHandler(nodeType) {
       return function (value) {
@@ -799,16 +802,19 @@
         return node;
       }
     }
+
     /* Creates an effect for text binding. */
     function textContentBinding(binding) {
       setCurrentNodeBinding(function () {
         currentNode.textContent = binding.$;
       });
     }
+
     /* Reusable text content bindings. */
     const
       TEXT_NODE_HANLDER = createNodeTextContentHandler(Node.TEXT_NODE),
       COMMENT_NODE_HANLDER = createNodeTextContentHandler(Node.COMMENT_NODE);
+
     /* Set current node bindings. */
     setCurrentNodeBinding = function (fn) {
       let
@@ -824,6 +830,7 @@
         currentComponent = pCurrentComponent;
       });
     }
+
     /* 
      * Creates text node or transforms template 
      * literal into paragraph.
@@ -842,6 +849,7 @@
       }
       return currentNode;
     }
+
     function createRenderEffect(fn, component) {
       let 
         _effect = returnEffect(fn),
@@ -853,6 +861,7 @@
       }
       return node;
     }
+
     mountComponent = function (componentFunction, ...props) {
       modules.openComponent.forEach(hook => hook(componentFunction, ...props));
       let component;
@@ -865,6 +874,7 @@
       modules.closeComponent.forEach(hook => hook(componentFunction, ...props));
       return component;
     }
+
     /* Mount application root */
     mount = function (rootSelector, component, ...props) {
       ready(function () {

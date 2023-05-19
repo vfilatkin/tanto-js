@@ -1,10 +1,9 @@
-/**
- * Hash router component.
- */
 let Route, Router;
 (function () {
+
   if(!window.t)
     throw "Cannot initialize module.";
+
   //Get path object from route template 
   function parseRouteTemplate(template) {
     var i = 0,
@@ -23,6 +22,7 @@ let Route, Router;
     }
     return path;
   }
+
   /**
    * Parses route template string and returns route.
    * Route can have static and dynamic segments. 
@@ -36,12 +36,14 @@ let Route, Router;
    * @param {function} action 
    * @returns {object} 
    */
+
   Route = function (template, action) {
     return {
       path: parseRouteTemplate(template),
       action: action
     }
   }
+
   //Get URL parameters
   function getHashParameters(parameters) {
     var array = parameters.split(/\&/),
@@ -52,6 +54,7 @@ let Route, Router;
     });
     return params;
   }
+
   //Get path object from URL
   function parseHash(url) {
     var path = url.replace(/^\#\//, "").split(/\?/);
@@ -60,6 +63,7 @@ let Route, Router;
       params: path[1] ? getHashParameters(path[1]) : ""
     };
   }
+
   //Returns object if url.path matches route.path
   function tryRoute(hashPath, routePath) {
     var i = 0,
@@ -84,6 +88,7 @@ let Route, Router;
       return false;
     }
   }
+
   //Find route and get hash data
   function resolveRoute(hash, routes) {
     let i = 0,
@@ -108,6 +113,7 @@ let Route, Router;
     //Route not found
     return false;
   }
+
   //Find route and redirect
   function handleHashChange(routes, defaultRoute) {
     var validRoute = resolveRoute(window.location.hash, routes),
@@ -118,6 +124,7 @@ let Route, Router;
       return defaultRoute;
     }
   }
+
   /**
    * Creates a new router and adds hash change listener.
    * @example
@@ -133,6 +140,7 @@ let Route, Router;
    * @param {string} default 
    * @param {array} routes 
    */
+
   Router = function (defaultView, routes) {
     const currentRoute = t.signal(handleHashChange(routes, defaultView));
     window.onhashchange = function () {
