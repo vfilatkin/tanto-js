@@ -1,7 +1,7 @@
 let style, rule;
 (function () {
   if(!window.t)
-    throw "Cannot initialize plugin.";
+    throw "Cannot initialize module.";
   
   const SCOPE_PREFIX = 't-';
 
@@ -175,7 +175,7 @@ let style, rule;
     currentScope = null,
     previousScope = null;
   /* Connect to tanto.js render hooks */
-  t.plugin({
+  t.module({
     openRoot: function(){
       let styleSheet = document.createElement('style');
       styleSheet.type="text/css";

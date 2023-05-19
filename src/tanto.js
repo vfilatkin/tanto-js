@@ -1,8 +1,6 @@
-//Core library
 (function () {
   'use strict'
 
-  /* Utilies. */
   function noop() { };
   function ready(f) {
     if (document.readyState != 'loading') {
@@ -12,9 +10,9 @@
     }
   }
 
-  let plugin, plugins;
+  let moduleImpl, modules;
   (function () {
-    plugins = {
+    modules = {
       openRoot: [],
       openComponent: [],
       closeComponent: [],
@@ -22,10 +20,10 @@
       closeNode: [],
       setAttribute: []
     }
-    plugin = function (hooks) {
-      for (let key in plugins) {
+    moduleImpl = function (hooks) {
+      for (let key in modules) {
         if (hooks[key])
-          plugins[key].push(hooks[key])
+          modules[key].push(hooks[key])
       }
     }
   })();
@@ -48,18 +46,15 @@
       STALE = 1 << 0,
       RUNNING = 1 << 1,
       REMOVED = 1 << 2;
-    /* Globals */
     let
       currentContext = null,
       effectQueue = [];
-    /* Signal */
     const SIGNAL_OPTIONS = { equal: true };
     function Signal(value, options) {
       this._value = value;
       this.targets = [];
       this.options = options || SIGNAL_OPTIONS;
     }
-    /* Returns true if given object is instance of Signal */
     isSignal = function (object) {
       return object instanceof Signal;
     };
@@ -114,11 +109,10 @@
     Signal.prototype.toString = function () {
       return "[object Signal]";
     }
-    /* Create new state. */
     signalImpl = function (value, options) {
       return new Signal(value, options);
     }
-    /* Effect */
+
     const EFFECT_OPTIONS = { defer: false };
     function Effect(fn, options) {
       this.fn = fn;
@@ -193,22 +187,19 @@
       this.unsubscribeFromSources();
       this.clearHosted();
     }
-    /* Create new effect and return it's instance. (For internal usage only)*/
     returnEffect = function (fn, options) {
       return new Effect(fn, options);
     }
-    /* Returns current effect context (For internal usage only)*/
     getEffectContext = function () {
       return currentContext;
     }
     Effect.prototype.toString = function () {
       return "[object Effect]";
     }
-    /* Create new effect. */
     effectImpl = function (fn, options) {
       new Effect(fn, options);
     }
-    /* Root */
+
     function Root(fn) {
       this.hosted = [];
       this.cleanups = null;
@@ -242,11 +233,10 @@
       this.runCleanups();
       this.clearHosted();
     }
-    /* Create new root. */
     rootImpl = function (fn) {
       new Root(fn);
     }
-    /* Computed */
+
     function Computed(fn) {
       this.fn = fn;
       this._value = undefined;
@@ -305,11 +295,9 @@
     Computed.prototype.toString = function () {
       return "[object Computed]";
     }
-    /* Create new computed. */
     computedImpl = function (fn) {
       return new Computed(fn);
     }
-    /* Create new cleanup. */
     cleanupImpl = function (fn) {
       if (!currentContext)
         throw "Cannot add cleanup function without context.";
@@ -322,9 +310,6 @@
 
   /**
    * The DOM Patcher.
-   * 
-   * Commands to track patcher movement. 
-   * Represents opening or closing tags.
    */
   let
     patchInner,
@@ -339,7 +324,7 @@
     setCurrentNodeClassAttribute,
     setCurrentNodeListener,
     setCurrentNodeBinding,
-    setCurrentNodeInnerText;
+    createTextNodes;
   let
     mount,
     mountComponent;
@@ -357,25 +342,15 @@
      * patch() function.
      */
     var
-      //Current patch entry point
       currentRootNode = null,
-      //Current patcher namespace
       namespace = null,
-      //Previous tracked command.
       previousCommand = null,
-      //Current tracked command.
       currentCommand = null,
-      //Current node type (equal to Node.nodeType)
       currentNodeType = null,
-      //Current node in DOM-tree.
       currentNode = null,
-      //Previous node in DOM-tree.
       previousNode = null,
-      //Created patch. Will be attached after it is comleted.
       patchRoot = null,
-      //Parent for created patch.
       patchParent = null,
-      //Current component reference;
       currentComponent = null;
     /**
      * Patches elements of DOM-tree
@@ -429,38 +404,24 @@
         return element;
       }
     }
-    //Inner patcher
+    //Inner patcher.
     patchInner = Patcher(function (patchFn) {
       currentNode = currentRootNode;
       let element = patchFn();
       removeUnopened();
       return element;
     })
-    //Patch element outerHTML
+
+    //Patch element's outerHTML.
     patchOuter = Patcher(function (patchFn) {
       currentNode = { firstChild: currentNode };
       return patchFn();
     })
-    //True if same tag
+    
     function isSameTag(tag1, tag2) {
       return tag1.toLowerCase() === tag2.toLowerCase();
     }
-    //Patch node style
-    function updateStyle(node, style) {
-      if (typeof style === 'function')
-        style = style()
-      switch (typeof style) {
-        case 'string':
-          node.style = style
-          break;
-        case 'object':
-          node.style = ''
-          for (let key in style) {
-            node.style.setProperty(key, style[key])
-          }
-          break;
-      }
-    }
+
     //Returns two arrays. First contains used keys, second contains unused.
     function diffKeys(aKeys, bKeys) {
       var
@@ -506,14 +467,6 @@
       return currentAttributes;
     }
     function setNodeAttribute(node, name, value) {
-      if (name === 'style') {
-        updateStyle(node, value);
-        return;
-      }
-      if (typeof value === 'function') {
-        node[name] = value
-        return
-      }
       node.setAttribute(name, value)
     }
     function removeNodeAttribute(node, name) {
@@ -537,7 +490,7 @@
         updateNodeAttributes(node, unused, newAttributes, removeNodeAttribute)
       }
     }
-    //Set patcher namespace data
+
     function setPatcherNamespace(namespaceURI) {
       if (namespaceURI) {
         namespace = {};
@@ -545,13 +498,13 @@
         namespace.URI = namespaceURI;
       }
     }
-    //Set patcher namespace data
+
     function defaultPatcherNamespace() {
       if (namespace && namespace.node === currentNode) {
         namespace = null;
       }
     }
-    //Create new element
+
     function createElementNode(tag) {
       var newNode;
       if (namespace) {
@@ -561,17 +514,17 @@
       }
       return newNode;
     }
-    //Add new element to parent
+
     function insertNode(parent, newNode) {
       parent.appendChild(newNode);
       return newNode;
     }
-    //Replace with new element
+
     function replaceNode(node, newNode) {
       node.parentNode.replaceChild(newNode, node);
       return newNode;
     }
-    //Remove child nodes
+
     function removeChildNodes(node) {
       while (node.firstChild) {
         node.removeChild(node.lastChild);
@@ -586,7 +539,6 @@
         parent.removeChild(child);
       } while (child != node)
     }
-    //Remove unopened elements
     function removeUnopened() {
       var unopened;
       if (previousNode) {
@@ -596,7 +548,6 @@
         }
       }
     }
-    //Start or proceed element building
     function buildPatch(parent, newNode) {
       if (patchRoot) {
         insertNode(currentNode, newNode);
@@ -607,7 +558,6 @@
       }
       return newNode;
     }
-    //Append patch result
     function applyPatch() {
       if (currentNode === patchRoot) {
         if (patchParent.nodeType !== patchRoot.nodeType) {
@@ -619,27 +569,15 @@
         patchRoot = null;
       }
     }
-    //Move to parent element and try to apply patch
+    //Move to parent element and try to apply patch.
     function exitNode() {
       defaultPatcherNamespace();
       applyPatch();
       previousNode = currentNode;
       currentNode = currentNode.parentNode;
     }
-    /**
-     * Update current node data.
-     * Patcher handles nodes of different types.
-     * It can be an issue when hydrating SSR markup
-     * with human readable formatting because of CR or LF.
-     */
     function updateNode(tagName, nodeType, nodeData) {
       if (currentNode.nodeType === nodeType) {
-        /**
-        * Update nodes of the same nodeType.
-        * Element node can be replaced if new tagName 
-        * different. For non-element nodes only
-        * text content will be changed.
-        */
         switch (currentNode.nodeType) {
           case Node.ELEMENT_NODE:
             if (!isSameTag(currentNode.tagName, tagName)) {
@@ -681,7 +619,7 @@
         switch (nodeType) {
           case Node.ELEMENT_NODE:
             currentNode = buildPatch(currentNode, createElementNode(tagName));
-            assignElementAttributes(currentNode, nodeData)
+            assignElementAttributes(currentNode, nodeData);
             return
           case Node.TEXT_NODE:
             currentNode = insertNode(currentNode, document.createTextNode(nodeData));
@@ -736,17 +674,17 @@
       currentCommand = command;
       moveToNextNode(tagName, nodeType, nodeData, namespaceURI)
     }
-    //Open node command
+    
     openNode = function (tagName, nodeType, nodeData, namespaceURI) {
       pushCommand(OPEN_NODE, tagName, nodeType, nodeData, namespaceURI);
-      plugins.openNode.forEach(hook => hook(tagName, nodeType, nodeData, namespaceURI));
+      modules.openNode.forEach(hook => hook(tagName, nodeType, nodeData, namespaceURI));
       return currentNode;
     }
-    //Close node command.
+
     closeNode = function () {
       var node = currentNode;
       pushCommand(CLOSE_NODE);
-      plugins.closeNode.forEach(hook => hook());
+      modules.closeNode.forEach(hook => hook());
       return node;
     }
     /* Creates an effect for text binding. */
@@ -784,6 +722,16 @@
     }
     /**
      * Retruns or sets current node.
+     * To set node - just pass new node value as parameter.
+     * @example 
+     * t.node(node);
+     * @example
+     * To get node - just call it without parameter.
+     * @example 
+     * t.node();
+     * @example
+     * @param {Node} node    - New current node.
+     * @returns {Node}       - Current node.
      */
     useCurrentNode = function (node) {
       if (node) return currentNode = node;
@@ -799,20 +747,17 @@
         currentNode.setAttributeNS(name, value);
       else
         currentNode.setAttribute(name, value);
-      plugins.setAttribute.forEach(hook => hook(name, value));
+      modules.setAttribute.forEach(hook => hook(name, value));
     }
     /* Sets attribute value or creates a binding. */
-    function interpolateAttributeExpression(attribute, expression, fn) {
-      fn = fn || noop;
+    function interpolateAttributeExpression(attribute, expression) {
       if (typeof expression === 'function') {
         setCurrentNodeBinding(function () {
           setCurrentNodeAttributeNS(attribute, expression());
-          fn();
         });
         return currentNode;
       }
       setCurrentNodeAttributeNS(attribute, expression);
-      fn();
       return currentNode;
     }
     /* Set current node attribute with interpolation. */
@@ -831,10 +776,6 @@
         node.removeEventListener(name, fn, options);
       })
     }
-    /* Returns true if object is instance of signal. */
-    function isBinding(data) {
-      return isSignal(data);
-    }
     /* Resolves text content binding. */
     function createNodeTextContentHandler(nodeType) {
       return function (value) {
@@ -847,7 +788,7 @@
           closeNode();
           return node;
         }
-        if (!isBinding(value)) {
+        if (!isSignal(value)) {
           node = openNode(null, nodeType, value);
           closeNode();
           return node;
@@ -864,7 +805,7 @@
         currentNode.textContent = binding.$;
       });
     }
-    /* Primitive text content bindings. */
+    /* Reusable text content bindings. */
     const
       TEXT_NODE_HANLDER = createNodeTextContentHandler(Node.TEXT_NODE),
       COMMENT_NODE_HANLDER = createNodeTextContentHandler(Node.COMMENT_NODE);
@@ -887,7 +828,7 @@
      * Creates text node or transforms template 
      * literal into paragraph.
      */
-    setCurrentNodeInnerText = function (elements, ...expressions) {
+    createTextNodes = function (elements, ...expressions) {
       if (expressions.length === 0) {
         textNode(elements);
         return currentNode;
@@ -901,34 +842,19 @@
       }
       return currentNode;
     }
-
-    /* Create new render effect */
     function createRenderEffect(fn, component) {
-      /* 
-       * Chache new effect. 
-       * Component root node will be rendered 
-       * with common effect call.
-       */
-      let _effect = returnEffect(fn);
-      /* 
-       * Save rendered node.
-       */
-      let node = getPreviousNode();
-      /* 
-       * Replace fn.
-       * Effect's initial fn to be replaced
-       * with wrapped patcher function.
-       */
+      let 
+        _effect = returnEffect(fn),
+        node = getPreviousNode();
       _effect.fn = function () {
-        plugins.openComponent.forEach(hook => hook(component));
+        modules.openComponent.forEach(hook => hook(component));
         patchOuter(node, fn);
-        plugins.closeComponent.forEach(hook => hook(component));
+        modules.closeComponent.forEach(hook => hook(component));
       }
       return node;
     }
-    /* Mount component */
     mountComponent = function (componentFunction, ...props) {
-      plugins.openComponent.forEach(hook => hook(componentFunction, ...props));
+      modules.openComponent.forEach(hook => hook(componentFunction, ...props));
       let component;
       rootImpl(function () {
         component = componentFunction(...props);
@@ -936,14 +862,14 @@
           component = createRenderEffect(component, componentFunction);
         }
       });
-      plugins.closeComponent.forEach(hook => hook(componentFunction, ...props));
+      modules.closeComponent.forEach(hook => hook(componentFunction, ...props));
       return component;
     }
     /* Mount application root */
     mount = function (rootSelector, component, ...props) {
       ready(function () {
         patchInner(document.querySelector(rootSelector), function () {
-          plugins.openRoot.forEach(hook => hook(rootSelector, component, ...props));
+          modules.openRoot.forEach(hook => hook(rootSelector, component, ...props));
           mountComponent(component, ...props);
         })
       })
@@ -955,9 +881,9 @@
    * Performs 'in-place' diffing of the node.
    * @example
    * //Simple div element
-   * t('div', {'style':{'display':'block'}}); t()
+   * t('div', {}); t()
    * //In case of svg use it with namespace
-   * t('svg',{height:"100",width:"100"},"http://www.w3.org/2000/svg");
+   * t('svg', {},"http://www.w3.org/2000/svg");
    * @example
    * 
    * New element parameters 
@@ -1009,7 +935,7 @@
   t.on = setCurrentNodeListener;
   t.node = useCurrentNode;
   t.bind = setCurrentNodeBinding;
-  t.text = setCurrentNodeInnerText;
-  t.plugin = plugin;
+  t.text = createTextNodes;
+  t.module = moduleImpl;
   window.t = t;
 })();

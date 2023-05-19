@@ -32,6 +32,7 @@ const App = title => {
   const handleClick = () => {
     renderCount.$++;
   }
+  
   return () => (
     t('div'),
       t('div'),
@@ -42,7 +43,8 @@ const App = title => {
       t(Counter, 1),
       t(Counter, 5),
       t(Counter, 7),
-      t('button', {'onclick': handleClick}),
+      t('button'),
+        t.on('click', handleClick),
         t.text`reload app`,
       t(),
     t()
