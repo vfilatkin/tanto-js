@@ -2,8 +2,6 @@
 (function () {
   'use strict'
 
-
-
   /* Utilies. */
   function noop() { };
   function ready(f) {
@@ -13,8 +11,6 @@
       document.addEventListener('DOMContentLoaded', f);
     }
   }
-
-
 
   let plugin, plugins;
   (function () {
@@ -34,8 +30,6 @@
     }
   })();
 
-
-
   /**
    * Component state module.
    */
@@ -43,11 +37,11 @@
     signalImpl,
     computedImpl,
     effectImpl,
+    rootImpl,
     cleanupImpl,
     getEffectContext,
     returnEffect,
     isSignal;
-
   (function () {
     /* Effect & computed state flags */
     const
@@ -98,8 +92,10 @@
     }
     Signal.prototype.subscribe = function () {
       if (!currentContext) return;
-      this.addTarget(currentContext);
-      currentContext.addSource(this);
+      if (currentContext instanceof Effect) {
+        this.addTarget(currentContext);
+        currentContext.addSource(this);
+      }
     }
     Signal.prototype.unsubscribe = function (target) {
       let targets = [];
@@ -122,7 +118,6 @@
     signalImpl = function (value, options) {
       return new Signal(value, options);
     }
-
     /* Effect */
     const EFFECT_OPTIONS = { defer: false };
     function Effect(fn, options) {
@@ -213,7 +208,44 @@
     effectImpl = function (fn, options) {
       new Effect(fn, options);
     }
-
+    /* Root */
+    function Root(fn) {
+      this.hosted = [];
+      this.cleanups = null;
+      this.addHosted();
+      let pContext = currentContext;
+      currentContext = this;
+      fn();
+      currentContext = pContext;
+    }
+    Root.prototype.addHosted = function () {
+      if (!currentContext) return;
+      if (!currentContext.hosted)
+        throw 'Computed cannot have roots.'
+      currentContext.hosted.push(this);
+    }
+    Root.prototype.runCleanups = function () {
+      if (!this.cleanups) return;
+      for (let cI = 0, cL = this.cleanups.length; cI < cL; cI++) {
+        this.cleanups[cI]();
+      }
+      this.cleanups.length = 0;
+    }
+    Root.prototype.clearHosted = function () {
+      for (let hI = 0, hL = this.hosted.length; hI < hL; hI++) {
+        const hosted = this.hosted[hI];
+        hosted.clear();
+      }
+      this.hosted.length = 0;
+    }
+    Root.prototype.clear = function () {
+      this.runCleanups();
+      this.clearHosted();
+    }
+    /* Create new root. */
+    rootImpl = function (fn) {
+      new Root(fn);
+    }
     /* Computed */
     function Computed(fn) {
       this.fn = fn;
@@ -288,8 +320,6 @@
     }
   })();
 
-
-
   /**
    * The DOM Patcher.
    * 
@@ -304,7 +334,7 @@
     commentNode,
     clearNode,
     getPreviousNode,
-    getCurrentNode,
+    useCurrentNode,
     setCurrentNodeAttribute,
     setCurrentNodeClassAttribute,
     setCurrentNodeListener,
@@ -753,10 +783,10 @@
       }
     }
     /**
-     * Retruns current node context.
-     * Used in arrow functions instead of 'this'.
+     * Retruns or sets current node.
      */
-    getCurrentNode = function () {
+    useCurrentNode = function (node) {
+      if (node) return currentNode = node;
       return currentNode;
     }
     /* Get current DOM index. */
@@ -899,10 +929,13 @@
     /* Mount component */
     mountComponent = function (componentFunction, ...props) {
       plugins.openComponent.forEach(hook => hook(componentFunction, ...props));
-      let component = componentFunction(...props);
-      if (typeof component === 'function') {
-        component = createRenderEffect(component, componentFunction);
-      }
+      let component;
+      rootImpl(function () {
+        component = componentFunction(...props);
+        if (typeof component === 'function') {
+          component = createRenderEffect(component, componentFunction);
+        }
+      });
       plugins.closeComponent.forEach(hook => hook(componentFunction, ...props));
       return component;
     }
@@ -916,8 +949,6 @@
       })
     }
   })();
-
-
 
   /**
    * Manipulates patcher movement through DOM-tree nodes of an element.
@@ -961,8 +992,6 @@
     }
   }
 
-
-
   //Expose API
   t.ready = ready;
   t.patch = patchInner;
@@ -973,11 +1002,12 @@
   t.signal = signalImpl;
   t.effect = effectImpl;
   t.computed = computedImpl;
-  t.cleanup = cleanupImpl;;
+  t.root = rootImpl;
+  t.cleanup = cleanupImpl;
   t.attr = setCurrentNodeAttribute;
   t.class = setCurrentNodeClassAttribute;
   t.on = setCurrentNodeListener;
-  t.node = getCurrentNode;
+  t.node = useCurrentNode;
   t.bind = setCurrentNodeBinding;
   t.text = setCurrentNodeInnerText;
   t.plugin = plugin;
