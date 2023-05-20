@@ -1,0 +1,27 @@
+{
+  "name": "tanto",
+  "version": "0.9.0",
+  "description": "Small client-side framework for SPA-applications featuring signals and incremental-DOM-like renderinng mechanism.",
+  "main": "index.js",
+  "directories": {
+    "example": "examples"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vfilatkin/tanto-js.git"
+  },
+  "keywords": [
+    "SPA",
+    "Client",
+    "Signals"
+  ],
+  "author": "Vitaliy Filatkin",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/vfilatkin/tanto-js/issues"
+  },
+  "homepage": "https://github.com/vfilatkin/tanto-js#readme"
+}
