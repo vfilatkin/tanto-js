@@ -90,9 +90,9 @@ t()
 Returns current node or sets patcher context. Can be useful within bindings created by arrow functions or modules.
 ***node*** - Existing node.
 ```js
-t(‘div’),
-  t.on(‘click’, ()=>{})
-t()
+let currentNode = t.node();
+t.node(currentNode);
+
 ```
 ### t.bind(fn)
 Creates binding. Binding is an effect(see **state management** section) wich is rerun when state changes. Binding is wrapped with **t.patch()** so inner DOM structure can be changed.
