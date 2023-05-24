@@ -6,44 +6,44 @@ Library includes rendering and state management mechanisms.
 - [Components](#components)
 ## Rendering
 ### t()
-Depending on the arguments it’s used for markup or component mounting.
+Depending on the arguments it's used for markup or component mounting.
 Pass valid tag name as first argument to initiate element patching or open next node. 
 To close tag pass no arguments.
 Despite its similarities with HyperScript, tag functions will not always create a new node. Patcher uses calls to navigate within DOM tree and reconcile changes. I.e. creates, replaces and updates nodes.
 ```js
-t(‘div’),t()
+t('div'),t()
 ```
 Example above demonstrates simple patch for div element. If patcher target is already div, node will not be replaced.
 
-To mount existing component it’s function must be used as first argument.
+To mount existing component it's function must be used as first argument.
 ```js
 t(MyComponent, …props)
 ```
 ### t.patch(element, patchFn, namespaceURI)
 Main patcher function. Reconciles target node inner DOM structure.
-***element*** - Patcher target element. Node of any type.
-***patchFn*** - Patch callback, containing calls of t-function.
-***namespaceURI*** - namespace of the patch.
+* ***element*** - Patcher target element. Node of any type.
+* ***patchFn*** - Patch callback, containing calls of t-function.
+* ***namespaceURI*** - namespace of the patch.
 ```js
 t.patch(element,()=>{
-  t(‘div’),t()
+  t('div'),t()
 });
 ```
 ### t.outer(element, patchFn, namespaceURI)
-Same as **t.patch()** but updates target node as well as it’s inner DOM structure.
+Same as **t.patch()** but updates target node as well as it's inner DOM structure.
 Technically every component render function or binding is wrapped with outer patcher.
-***element*** - Patcher target element. Node of any type.
-***patchFn*** - Patch callback, containing calls of t-function.
-***namespaceURI*** - namespace of the patch.
+* ***element*** - Patcher target element. Node of any type.
+* ***patchFn*** - Patch callback, containing calls of t-function.
+* ***namespaceURI*** - namespace of the patch.
 ```js
 t.outer(element,()=>{
-  t(‘div’),t()
+  t('div'),t()
 });
 ```
 ### t.comment(text)
 Creates a new comment node or modifying content of existing comment node.
 ```js
-t.comment(‘foo’);
+t.comment('foo');
 ```
 ### t.clear()
 Removes every child node.
@@ -52,43 +52,43 @@ t.clear();
 ```
 ### t.mount(rootSelector, component, ...props)
 Sets application and patcher entry point.
-***rootSelector*** - Selector for an root element.
-***component*** - Root component.
-***props*** - Root component properties.
+* ***rootSelector*** - Selector for an root element.
+* ***component*** - Root component.
+* ***props*** - Root component properties.
 ```js
-t.mount(‘#app’, App, …props);
+t.mount('#app', App, …props);
 ```
 ### t.attr(name, value)
 Sets current node attribute. If function or signal used as value binding will be created.
-***name*** - Attribute name.
-***value*** - Value or binding.
+* ***name*** - Attribute name.
+* ***value*** - Value or binding.
 ```js
 let fooSignal = t.signal(true)
-t(‘div’),
-  t.attr(‘id’,‘foo’)
-  t.attr(‘foo’, ()=> fooSignal.$? ‘yes’: ‘no’)
+t('div'),
+  t.attr('id','foo')
+  t.attr('foo', ()=> fooSignal.$? 'yes': 'no')
 t()
 ```
 ### t.class(value)
-Sets ‘class’ attribute. Shorthand for **t.attr(‘class’, value)**.
-***value*** - Value or binding.
+Sets 'class' attribute. Shorthand for **t.attr('class', value)**.
+* ***value*** - Value or binding.
 ```js
-t(‘div’),
-  t.class(‘foo’)
+t('div'),
+  t.class('foo')
 t()
 ```
 ### t.on(name, handler)
-Adds event listener to current element. Unobtrusively connected with library’s component logic. When component re-rendered, listeners created by this method will be removed.
-***name*** - Event name.
-***handler*** - Event handler.
+Adds event listener to current element. Unobtrusively connected with library's component logic. When component re-rendered, listeners created by this method will be removed.
+* ***name*** - Event name.
+* ***handler*** - Event handler.
 ```js
-t(‘div’),
-  t.on(‘click’, ()=>{})
+t('div'),
+  t.on('click', ()=>{})
 t()
 ```
 ### t.node(node)
 Returns current node or sets patcher context. Can be useful within bindings created by arrow functions or modules.
-***node*** - Existing node.
+* ***node*** - Existing node.
 ```js
 let currentNode = t.node();
 t.node(currentNode);
@@ -96,29 +96,29 @@ t.node(currentNode);
 ```
 ### t.bind(fn)
 Creates binding. Binding is an effect(see **state management** section) wich is rerun when state changes. Binding is wrapped with **t.patch()** so inner DOM structure can be changed.
-***fn*** - Effects function.
+* ***fn*** - Effects function.
 ```js
 let isDiv = t.signal(true)
-t(‘div’),
+t('div'),
   t.bind(()=>{
-    mySignal.$? (t(‘div’),t()): (t(‘span’),t())
+    mySignal.$? (t('div'),t()): (t('span'),t())
   })
 t()
 ```
 ### t.text(text)
 Creates a text node. Can be used as tagged template literal. Every function or signal will be interpolated as binding.
-***text*** - String, binding or signal.
+* ***text*** - String, binding or signal.
 ```js
 let count = t.signal(true)
 //…
-t.text(‘foo’),
+t.text('foo'),
 t.text`Clicked ${count} ${()=> count.$ === 1? 'time': 'times' }`
 //…
 ```
 ## State management.
 ### t.signal(data)
-Returns a signal object. Signal is a reactive data container. Tracks the context of the calculations in which the it’s data is used. Automatically creates dependencies that will be updated when the signal receives new data.
-***data*** - Any data.
+Returns a signal object. Signal is a reactive data container. Tracks the context of the calculations in which the it's data is used. Automatically creates dependencies that will be updated when the signal receives new data.
+* ***data*** - Any data.
 ```js
 let mySignal = t.signal(true);
 //…
@@ -128,21 +128,21 @@ mySignal.$ = false;
 ```
 ### t.effect(fn)
 Creates a side effect for changing the data of the input signals. Executed upon creation and called whenever the data of the signals used in the calculations is changed.
-***fn*** - An effect’s function. 
+* ***fn*** - An effect's function.
 ```js
-let foo = t.signal(‘foo’);
+let foo = t.signal('foo');
 t.effect(()=>{
   console.log(foo.$);
 });
 //output: foo
-foo.$ = ‘bar’;
+foo.$ = 'bar';
 //output: bar
 ```
-Effects can be nested. Each time parent effect called it’s child effects will be wiped out and created anew. This approach avoids memory leaks.
+Effects can be nested. Each time parent effect called it's child effects will be wiped out and created anew. This approach avoids memory leaks.
 ### t.computed(fn)
 Returns computed signal. Combines the behavior of a signal and an effect. Receives new data when the used signals change and notifies dependent effects.
 changed.
-***fn*** - A function wich uses data signals. And returning new signal value.
+* ***fn*** - A function wich uses data signals. And returning new signal value.
 ```js
 let firstName = t.signal('John')
 let lastName = t.signal('Doe')
@@ -157,7 +157,7 @@ firstName.$ = 'Jane';
 Computed signals cannot have nested effects.
 ### t.root(fn)
 Creates a computation root, a context similar to an effect but without an executable function. It can have child effects and cleanups but not executed.
-***fn*** - A function containing data signals, effects and cleanups.
+* ***fn*** - A function containing data signals, effects and cleanups.
 ```js
 t.root(()=>{
   t.effect(() => {
@@ -168,7 +168,7 @@ t.root(()=>{
 Every component have a computation root.
 ### t.cleanup(fn)
 Executed when effect or root about to be wiped out.
-***fn*** - A function containing cleanup logic.
+* ***fn*** - A function containing cleanup logic.
 ```js
 t.effect(()=>{
   t.cleanup(()=>{/* Cancel API request, etc… */});
@@ -232,9 +232,9 @@ t.mount('#app', App, 'This is a counter example')
 ```
 Components are passed to the markup function with parameters. In example the top level component App creates several instances of the Counter component with different parameters. 
 
-The whole DOM tree of App component will not be re-rendered again because it’s called only once. Changing data will cause only particular changes.
+The whole DOM tree of App component will not be re-rendered again because it's called only once. Changing data will cause only particular changes.
 
-To make component re-render it’s whole DOM structure component must return function.
+To make component re-render it's whole DOM structure component must return function.
 ```js
 const Counter = initialCount => {
   //…
