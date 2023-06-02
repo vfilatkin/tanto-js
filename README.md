@@ -19,7 +19,6 @@ The core library only includes the rendering engine and state management. Additi
 
 - **Router Component** - Easy to set up and use hash router.
 - **Component Styling** - Component style isolation module. Using the CSS-in-JS approach, it allows you to isolate styles and classes from the rest of the components. Rules for elements and classes are applied automatically during rendering.
-- **HTML Tagged Templates** - Allows you to use HTML code as tagged template literals with expression interpolation.
 
 ## Quick example
 Here is an example of counter application.
