@@ -67,6 +67,12 @@ const Tabs = tabs => {
   );
 }
 
+const SVGImage = () => {
+  return (
+    t('svg','http://www.w3.org/2000/svg'),t.attr('width','16'),t.attr('height','16'),t.attr('version','1.1'),t.attr('viewBox','0 0 4.2 4.2'),t('g'),t.attr('fill','none'),t.attr('stroke','#000'),t.attr('stroke-linecap','round'),t.attr('stroke-linejoin','round'),t.attr('stroke-width','.3'),t('path'),t.attr('d','m2.9 0.53-2.1 2.1-0.26 0.79 0.79-0.26 2.1-2.1s0.26-0.26 0-0.53c-0.26-0.26-0.53 0-0.53 0z'),t(),t('path'),t.attr('d','m0.53 4h3.2'),t(),t(),t()
+  );
+}
+
 const App = title => {
   return (
     t('div'), t.text(title), t(),
@@ -95,6 +101,9 @@ const App = title => {
         Tab('Text', () => {
           t.text('Just text...')
           t(Input, 'abc.js', value => { return /[a-z]/i.test(value); })
+        }),
+        Tab('SVG', () => {
+          SVGImage()
         })
       ]
     )

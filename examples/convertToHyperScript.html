@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+
+<html>
+<head>
+    <meta name="viewport" content="width=device-width" />
+    <script src="../utlis/hs.converter.js"></script>
+    <script>
+console.log(
+    HSConverter.bundle({
+    raw: `<svg width="16" height="16" version="1.1" viewBox="0 0 4.2333 4.2333" xmlns="http://www.w3.org/2000/svg">
+        <g fill="none" stroke="#000" stroke-linecap="round" stroke-linejoin="round" stroke-width=".3">
+            <path d="m2.9104 0.52917-2.1167 2.1167-0.26458 0.79375 0.79375-0.26458 2.1167-2.1167s0.26458-0.26458 0-0.52917c-0.26458-0.26458-0.52917 0-0.52917 0z"></path>
+            <path d="m0.52917 3.9688h3.175"></path>
+        </g>
+    </svg>`,
+    optimal: `<svg width="16" height="16" version="1.1" viewBox="0 0 4.2 4.2" xmlns="http://www.w3.org/2000/svg">
+        <g fill="none" stroke="#000" stroke-linecap="round" stroke-linejoin="round" stroke-width=".3">
+            <path d="m2.9 0.53-2.1 2.1-0.26 0.79 0.79-0.26 2.1-2.1s0.26-0.26 0-0.53c-0.26-0.26-0.53 0-0.53 0z"/>
+            <path d="m0.53 4h3.2"/>
+        </g>
+    </svg>`
+}, {
+    attributeMethodName: 'a',
+    textMethodName: 'T',
+  }));
+    </script>
+    <title>Index</title>
+</head>
+<body>
+    <div id="app">See console...</div>
+</body>
+</html>
