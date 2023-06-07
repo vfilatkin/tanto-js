@@ -595,7 +595,7 @@
     /**
      * Enter current node
      */
-    function enterNode(node, tagName, nodeType, nodeData, namespaceURI) {
+    function enterNode(node, tagName, nodeType, namespaceURI, nodeData) {
       setPatcherNamespace(namespaceURI);
       /**
        * Begin new patch if node does not exist.
@@ -624,17 +624,17 @@
     /**
      * Main patcher navigation method.
      */
-    function moveToNextNode(tagName, nodeType, nodeData, namespaceURI) {
+    function moveToNextNode(tagName, nodeType, namespaceURI, nodeData) {
       /**
        * Enter node when current command is OPEN.
        * Manipulate the node.
        */
       if (previousCommand == OPEN_NODE && currentCommand == OPEN_NODE) {
-        enterNode(currentNode.firstChild, tagName, nodeType, nodeData, namespaceURI)
+        enterNode(currentNode.firstChild, tagName, nodeType, namespaceURI, nodeData)
         return
       }
       if (previousCommand == CLOSE_NODE && currentCommand == OPEN_NODE) {
-        enterNode(previousNode.nextSibling, tagName, nodeType, nodeData, namespaceURI)
+        enterNode(previousNode.nextSibling, tagName, nodeType, namespaceURI, nodeData)
         return
       }
       /**
@@ -658,15 +658,15 @@
     }
 
     //Push new command and navigate patcher.
-    function pushCommand(command, tagName, nodeType, nodeData, namespaceURI) {
+    function pushCommand(command, tagName, nodeType, namespaceURI, nodeData) {
       previousCommand = currentCommand;
       currentCommand = command;
-      moveToNextNode(tagName, nodeType, nodeData, namespaceURI)
+      moveToNextNode(tagName, nodeType, namespaceURI, nodeData)
     }
     
-    openNode = function (tagName, nodeType, nodeData, namespaceURI) {
-      pushCommand(OPEN_NODE, tagName, nodeType, nodeData, namespaceURI);
-      modules.openNode.forEach(hook => hook(tagName, nodeType, nodeData, namespaceURI));
+    openNode = function (tagName, nodeType, namespaceURI, nodeData) {
+      pushCommand(OPEN_NODE, tagName, nodeType, namespaceURI, nodeData);
+      modules.openNode.forEach(hook => hook(tagName, nodeType, namespaceURI, nodeData));
       return currentNode;
     }
 
@@ -742,7 +742,7 @@
     /* Set current node attribute. */
     function setCurrentNodeAttributeNS(name, value) {
       if (namespace)
-        currentNode.setAttributeNS(name, value);
+        currentNode.setAttributeNS(null, name, value);
       else
         currentNode.setAttribute(name, value);
       modules.setAttribute.forEach(hook => hook(name, value));
@@ -784,7 +784,7 @@
       return function (value) {
         let node;
         if (typeof value === 'function') {
-          node = openNode(null, nodeType, value);
+          node = openNode(null, nodeType, null, value);
           setCurrentNodeBinding(function () {
             currentNode.textContent = value();
           });
@@ -792,11 +792,11 @@
           return node;
         }
         if (!isSignal(value)) {
-          node = openNode(null, nodeType, value);
+          node = openNode(null, nodeType, null, value);
           closeNode();
           return node;
         }
-        node = openNode(null, nodeType, '');
+        node = openNode(null, nodeType, null, '');
         textContentBinding(value);
         closeNode();
         return node;
