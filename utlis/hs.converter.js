@@ -1,8 +1,10 @@
-let HSConverter = (function(){
+let HSConverter = (function () {
   let minify = true;
   let refernces = {
-    attributeMethodName: { dev: 't.attr', min: 'a'},
-    textMethodName: { dev: 't.text', min: 'T'}
+    attributeMethodName: { dev: 't.attr', min: 'a' },
+    textMethodName: { dev: 't.text', min: 'T' },
+    commentMethodName: { dev: 't.comment', min: 'c' },
+    eventListenerMethodName: { dev: 't.on', min: 'o' },
   }
   function getVNode(node) {
     let
@@ -14,10 +16,10 @@ let HSConverter = (function(){
       namespace: namespace,
       attributes: attributes,
       children: getVNodeChildren(node),
-      content: tag? null : node.textContent
+      content: tag ? null : node.textContent
     }
   }
-  
+
   function getVNodeChildren(node) {
     let
       children = [],
@@ -29,15 +31,15 @@ let HSConverter = (function(){
     }
     return children;
   }
-  
+
   function getVNodeAttributes(node) {
     let namespace,
-        attributes = [];
+      attributes = [];
     if (node.nodeType === Node.ELEMENT_NODE) {
       if (node.hasAttributes()) {
         for (const attribute of node.attributes) {
           if (attribute.name === 'xmlns') {
-            namespace = attribute.value
+            namespace = attribute.value;
           } else {
             attributes.push({ name: attribute.name, value: attribute.value });
           }
@@ -46,38 +48,41 @@ let HSConverter = (function(){
     }
     return [namespace, attributes];
   }
-  
+
   function renderHyperScriptNode(vnode) {
     if (vnode.tag)
-      return `t('${vnode.tag}'${vnode.namespace ? `,'${vnode.namespace}'`: ''}),${renderHyperScriptNodeAttributes(vnode.attributes)}${renderHyperScriptNodeChildren(vnode.children)}t(),`;
-    return `${minify? refernces.textMethodName.min : refernces.textMethodName.dev}\`${vnode.content}\`,`;
+      return `t('${vnode.tag}'${vnode.namespace ? `,'${vnode.namespace}'` : ''}),${renderHyperScriptNodeAttributes(vnode.attributes)}${renderHyperScriptNodeChildren(vnode.children)}t()`;
+    if (vnode.type === 3)
+      return `${minify ? refernces.textMethodName.min : refernces.textMethodName.dev}\`${vnode.content}\``;
+    if (vnode.type === 8)
+      return `${minify ? refernces.commentMethodName.min : refernces.commentMethodName.dev}\`${vnode.content}\``;
   }
-  
+
   function renderHyperScriptNodeChildren(children) {
     let text = '';
     for (let cI = 0, cL = children.length; cI < cL; cI++) {
       const vnode = children[cI];
-      text += renderHyperScriptNode(vnode);
+      text += renderHyperScriptNode(vnode) + ',';
     }
     return text;
   }
-  
+
   function renderHyperScriptNodeAttributes(attributes) {
     let text = '';
     for (let aI = 0, aL = attributes.length; aI < aL; aI++) {
       const attribute = attributes[aI];
-      text += `${minify? refernces.attributeMethodName.min : refernces.attributeMethodName.dev}('${attribute.name}','${attribute.value}'),`
+      text += `${minify ? refernces.attributeMethodName.min : refernces.attributeMethodName.dev}('${attribute.name}','${attribute.value}'),`
     }
     return text;
   }
-  
+
   function cleanHtml(innerHTML) {
     return innerHTML.replaceAll(/[\r\n\t]/gi, '').replaceAll(/\s\s+/gi, ' ').replaceAll(/>\s</gi, '><');
   }
-  
-  function convertToVNode(data){
+
+  function convertToVNode(data) {
     let element;
-    if(typeof data === 'string'){
+    if (typeof data === 'string') {
       element = document.createElement('div');
       element.innerHTML = cleanHtml(data);
       return getVNode(element.firstElementChild);
@@ -87,22 +92,22 @@ let HSConverter = (function(){
     return getVNode(element);
   }
 
-  function convertToHS(data){
+  function convertToHS(data) {
     return renderHyperScriptNode(convertToVNode(data));
   }
 
-  function minifyReferences(){
-    let methods =  [];
+  function minifyReferences() {
+    let methods = [];
     for (const method in refernces) {
       methods.push(`${refernces[method].min}=${refernces[method].dev}`);
     }
     return 'let ' + methods.join(',') + ';'
   }
 
-  function makeBundle(data,){
+  function makeBundle(data,) {
     let declarations = 'let ' + Object.keys(data).join() + ';';
     let blocks = [];
-    for(let element in data){
+    for (let element in data) {
       blocks.push(`${element}=function(){${convertToHS(data[element])}}`)
     }
     return `${declarations}(function(){${minifyReferences()}${blocks.join(';')}})();`;
