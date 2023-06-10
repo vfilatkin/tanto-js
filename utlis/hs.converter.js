@@ -1,4 +1,34 @@
 let HSConverter = (function () {
+  function CodeFormatter(readable, tabSpaces){
+    this.readable = readable || false;
+    this.tabSpaces = tabSpaces || 2;
+    this.tabLevel = 0;
+    this.text = '';
+
+    this.tab = function (){
+      this.tabLevel++;
+      return this;
+    }
+
+    this.untab = function (){
+      this.tabLevel--;
+      return this;
+    }
+    function unformatted(lineText){
+      this.text += lineText? lineText : '';
+    }
+    this.line = function ( lineText ){
+      if(!lineText) return this;
+      if(this.readable){
+        var spaces = ' '.repeat(this.tabSpaces).repeat(this.tabLevel)
+        this.text += spaces + (lineText? lineText : '') + '\n';
+        return this;
+      }
+      unformatted(lineText)
+      return this;
+    }
+  }
+
   let minify = true;
   let refernces = {
     attributeMethodName: { dev: 't.attr', min: 'a' },
@@ -49,22 +79,27 @@ let HSConverter = (function () {
     return [namespace, attributes];
   }
 
-  function renderHyperScriptNode(vnode) {
-    if (vnode.tag)
-      return `t('${vnode.tag}'${vnode.namespace ? `,'${vnode.namespace}'` : ''}),${renderHyperScriptNodeAttributes(vnode.attributes)}${renderHyperScriptNodeChildren(vnode.children)}t()`;
+  function renderHyperScriptNode(vnode, formatter) {
+    if (vnode.tag){
+      if(vnode.children.length === 0)
+        return formatter.line(`t('${vnode.tag}'${vnode.namespace ? `,'${vnode.namespace}'` : ''}),${renderHyperScriptNodeAttributes(vnode.attributes)}t(),`)
+      return formatter.line(`t('${vnode.tag}'${vnode.namespace ? `,'${vnode.namespace}'` : ''}),${renderHyperScriptNodeAttributes(vnode.attributes)}`)
+      .tab()
+        .line(renderHyperScriptNodeChildren(vnode.children, formatter))
+        .untab()
+      .line('t(),');
+    }
     if (vnode.type === 3)
-      return `${minify ? refernces.textMethodName.min : refernces.textMethodName.dev}\`${vnode.content}\``;
+      return formatter.line(`${minify ? refernces.textMethodName.min : refernces.textMethodName.dev}\`${vnode.content}\``);
     if (vnode.type === 8)
-      return `${minify ? refernces.commentMethodName.min : refernces.commentMethodName.dev}\`${vnode.content}\``;
+      return formatter.line(`${minify ? refernces.commentMethodName.min : refernces.commentMethodName.dev}\`${vnode.content}\``);
   }
 
-  function renderHyperScriptNodeChildren(children) {
-    let text = '';
+  function renderHyperScriptNodeChildren(children, formatter) {
     for (let cI = 0, cL = children.length; cI < cL; cI++) {
       const vnode = children[cI];
-      text += renderHyperScriptNode(vnode) + ',';
+      renderHyperScriptNode(vnode, formatter);
     }
-    return text;
   }
 
   function renderHyperScriptNodeAttributes(attributes) {
@@ -92,8 +127,8 @@ let HSConverter = (function () {
     return getVNode(element);
   }
 
-  function convertToHS(data) {
-    return renderHyperScriptNode(convertToVNode(data));
+  function convertToHS(data, formatter) {
+    renderHyperScriptNode(convertToVNode(data), formatter);
   }
 
   function minifyReferences() {
@@ -104,13 +139,24 @@ let HSConverter = (function () {
     return 'let ' + methods.join(',') + ';'
   }
 
-  function makeBundle(data,) {
-    let declarations = 'let ' + Object.keys(data).join() + ';';
-    let blocks = [];
+  function makeBundle(data) {
+    let bundle = new CodeFormatter(true)
+    .line('(function(){')
+    .tab()
+      .line(minifyReferences())
+      .line('let ' + Object.keys(data).join() + ';');
     for (let element in data) {
-      blocks.push(`${element}=function(){${convertToHS(data[element])}}`)
+      bundle
+      .line(`${element}=function(){`)
+      .tab()
+        .line(convertToHS(data[element], bundle))
+        .untab()
+      .line('}')
     }
-    return `${declarations}(function(){${minifyReferences()}${blocks.join(';')}})();`;
+    bundle
+    .untab()
+    .line('})();')
+    return bundle.text;
   }
 
   return {
