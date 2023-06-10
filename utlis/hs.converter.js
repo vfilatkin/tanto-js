@@ -139,10 +139,10 @@ let HSConverter = (function () {
 
   function makeBundle(data) {
     let bundle = new CodeFormatter(true)
+    .line('let ' + Object.keys(data).join() + ';')
     .line('(function(){')
     .tab()
-      .line(minifyReferences())
-      .line('let ' + Object.keys(data).join() + ';');
+      .line(minifyReferences());
     for (let element in data) {
       bundle
       .line(`${element}=function(){`)
