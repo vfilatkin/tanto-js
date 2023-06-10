@@ -14,9 +14,7 @@ let HSConverter = (function () {
       this.tabLevel--;
       return this;
     }
-    function unformatted(lineText){
-      this.text += lineText? lineText : '';
-    }
+
     this.line = function ( lineText ){
       if(!lineText) return this;
       if(this.readable){
@@ -24,7 +22,7 @@ let HSConverter = (function () {
         this.text += spaces + (lineText? lineText : '') + '\n';
         return this;
       }
-      unformatted(lineText)
+      this.text += lineText
       return this;
     }
   }
