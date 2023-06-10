@@ -87,7 +87,7 @@ let HSConverter = (function () {
       element.innerHTML = cleanHtml(data);
       return getVNode(element.firstElementChild);
     }
-    element = data.cloneNode();
+    element = data.cloneNode(true);
     element.innerHTML = cleanHtml(element.innerHTML);
     return getVNode(element);
   }
