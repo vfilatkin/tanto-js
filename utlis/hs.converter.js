@@ -28,17 +28,21 @@ let HSConverter = (function () {
   }
 
   let minify = true;
+
   let refernces = {
     attributeMethodName: { dev: 't.attr', min: 'a' },
     textMethodName: { dev: 't.text', min: 'T' },
     commentMethodName: { dev: 't.comment', min: 'c' },
     eventListenerMethodName: { dev: 't.on', min: 'o' },
   }
+
+  let DOMIndex = 0;
   function getVNode(node) {
     let
       tag = node.tagName,
       [namespace, attributes] = getVNodeAttributes(node);
     return {
+      index: DOMIndex++,
       type: node.nodeType,
       tag: tag ? tag.toLowerCase() : null,
       namespace: namespace,
