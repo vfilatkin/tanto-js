@@ -37,7 +37,7 @@ let HSConverter = (function () {
   }
 
   let DOMIndex = 0;
-  function getVNode(node) {
+  function VNode(node) {
     let
       tag = node.tagName,
       [namespace, attributes] = getVNodeAttributes(node);
@@ -47,18 +47,18 @@ let HSConverter = (function () {
       tag: tag ? tag.toLowerCase() : null,
       namespace: namespace,
       attributes: attributes,
-      children: getVNodeChildren(node),
-      content: tag ? null : node.textContent
+      children: VNodeChildren(node),
+      content: tag ? null : node.textContent,
     }
   }
 
-  function getVNodeChildren(node) {
+  function VNodeChildren(node) {
     let
       children = [],
       cL;
     if (node.childNodes && (cL = node.childNodes.length)) {
       for (let cI = 0; cI < cL; cI++) {
-        children.push(getVNode(node.childNodes[cI]));
+        children.push(VNode(node.childNodes[cI]));
       }
     }
     return children;
@@ -70,11 +70,10 @@ let HSConverter = (function () {
     if (node.nodeType === Node.ELEMENT_NODE) {
       if (node.hasAttributes()) {
         for (const attribute of node.attributes) {
-          if (attribute.name === 'xmlns') {
+          if(attribute.name === 'xmlns')
             namespace = attribute.value;
-          } else {
+          else
             attributes.push({ name: attribute.name, value: attribute.value });
-          }
         }
       }
     }
@@ -122,11 +121,11 @@ let HSConverter = (function () {
     if (typeof data === 'string') {
       element = document.createElement('div');
       element.innerHTML = cleanHtml(data);
-      return getVNode(element.firstElementChild);
+      return VNode(element.firstElementChild);
     }
     element = data.cloneNode(true);
     element.innerHTML = cleanHtml(element.innerHTML);
-    return getVNode(element);
+    return VNode(element);
   }
 
   function convertToHS(data, formatter) {
@@ -141,7 +140,7 @@ let HSConverter = (function () {
     return 'let ' + methods.join(',') + ';'
   }
 
-  function makeBundle(data) {
+  function renderBundle(data) {
     let bundle = new CodeFormatter(true)
     .line('let ' + Object.keys(data).join() + ';')
     .line('(function(){')
@@ -163,6 +162,6 @@ let HSConverter = (function () {
 
   return {
     convert: convertToHS,
-    bundle: makeBundle
+    bundle: renderBundle
   };
 })();
