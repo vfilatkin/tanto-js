@@ -40,7 +40,7 @@ let HSConverter = (function () {
   function VNode(node) {
     let
       tag = node.tagName,
-      [namespace, attributes] = getVNodeAttributes(node);
+      [namespace, attributes, hsProps] = getVNodeAttributes(node);
     return {
       index: DOMIndex++,
       type: node.nodeType,
@@ -49,6 +49,8 @@ let HSConverter = (function () {
       attributes: attributes,
       children: VNodeChildren(node),
       content: tag ? null : node.textContent,
+      hsProps: hsProps,
+      slots:[]
     }
   }
 
@@ -65,23 +67,52 @@ let HSConverter = (function () {
   }
 
   function getVNodeAttributes(node) {
-    let namespace,
-      attributes = [];
+    let 
+      namespace,
+      attributes = [],
+      hsProps = {};
     if (node.nodeType === Node.ELEMENT_NODE) {
       if (node.hasAttributes()) {
         for (const attribute of node.attributes) {
-          if(attribute.name === 'xmlns')
-            namespace = attribute.value;
-          else
-            attributes.push({ name: attribute.name, value: attribute.value });
+          switch (attribute.name){
+            case 'xmlns':
+              namespace = attribute.value;
+              break;
+            case 'block':
+              hsProps[attribute.name] = attribute.value;
+              break;
+            default:
+              attributes.push({ name: attribute.name, value: attribute.value });
+          }
         }
       }
     }
-    return [namespace, attributes];
+    return [namespace, attributes, hsProps];
+  }
+
+  function normalizeBundle(rootVNode){
+    let bundle = {
+      blocks: {}
+    }
+    function enterVNode(vnode){
+      let block = vnode.hsProps.block;
+      if(block){
+        bundle.blocks[block] = vnode;
+      }
+      enterVNodeChildren(vnode.children);
+    }
+    function enterVNodeChildren(children){
+      for (let cI = 0, cL = children.length; cI < cL; cI++) {
+        const vnode = children[cI];
+        enterVNode(vnode);
+      }
+    }
+    enterVNode(rootVNode);
+    return bundle;
   }
 
   function renderHyperScriptNode(vnode, formatter) {
-    if (vnode.tag){
+    if (vnode.type === 1){
       if(vnode.children.length === 0)
         return formatter.line(`t('${vnode.tag}'${vnode.namespace ? `,'${vnode.namespace}'` : ''}),${renderHyperScriptNodeAttributes(vnode.attributes)}t(),`)
       return formatter.line(`t('${vnode.tag}'${vnode.namespace ? `,'${vnode.namespace}'` : ''}),${renderHyperScriptNodeAttributes(vnode.attributes)}`)
@@ -129,7 +160,9 @@ let HSConverter = (function () {
   }
 
   function convertToHS(data, formatter) {
-    renderHyperScriptNode(convertToVNode(data), formatter);
+    let vnode = convertToVNode(data);
+    console.log(normalizeBundle(vnode));
+    renderHyperScriptNode(vnode, formatter);
   }
 
   function minifyReferences() {
