@@ -1,29 +1,45 @@
 let HSConverter = (function () {
-  function CodeFormatter(readable, tabSpaces){
-    this.readable = readable || false;
+
+  function CodeFormatter(tabSpaces) {
     this.tabSpaces = tabSpaces || 2;
     this.tabLevel = 0;
-    this.text = '';
+    this.text = [];
 
-    this.tab = function (){
+    this.tab = function () {
       this.tabLevel++;
       return this;
     }
 
-    this.untab = function (){
+    this.untab = function () {
       this.tabLevel--;
       return this;
     }
 
-    this.line = function ( lineText ){
-      if(!lineText) return this;
-      if(this.readable){
-        var spaces = ' '.repeat(this.tabSpaces).repeat(this.tabLevel)
-        this.text += spaces + (lineText? lineText : '') + '\n';
-        return this;
-      }
-      this.text += lineText
+    this.append = function (formatter) {
+      formatter.tabSpaces = this.tabSpaces;
+      formatter.tabLevel = this.tabLevel;
+      this.text.push(formatter);
       return this;
+    }
+
+    this.line = function (lineText) {
+      if (!lineText) return this;
+      this.text.push({tabs: this.tabLevel, text:lineText });
+      return this;
+    }
+
+    this.render = function () {
+      let text = '';
+      for (let lI = 0, tL = this.text.length; lI < tL; lI++) {
+        let line = this.text[lI];
+        if (line instanceof CodeFormatter) {
+          text += line.render();
+        } else {
+          let spaces = ' '.repeat(this.tabSpaces).repeat(this.tabLevel + line.tabs)
+          text += spaces + (line.text ? line.text : '') + '\n';
+        }
+      }
+      return text;
     }
   }
 
@@ -49,8 +65,7 @@ let HSConverter = (function () {
       attributes: attributes,
       children: VNodeChildren(node),
       content: tag ? null : node.textContent,
-      hsProps: hsProps,
-      slots:[]
+      hsProps: hsProps
     }
   }
 
@@ -67,14 +82,14 @@ let HSConverter = (function () {
   }
 
   function getVNodeAttributes(node) {
-    let 
+    let
       namespace,
       attributes = [],
       hsProps = {};
     if (node.nodeType === Node.ELEMENT_NODE) {
       if (node.hasAttributes()) {
         for (const attribute of node.attributes) {
-          switch (attribute.name){
+          switch (attribute.name) {
             case 'xmlns':
               namespace = attribute.value;
               break;
@@ -90,36 +105,15 @@ let HSConverter = (function () {
     return [namespace, attributes, hsProps];
   }
 
-  function normalizeBundle(rootVNode){
-    let bundle = {
-      blocks: {}
-    }
-    function enterVNode(vnode){
-      let block = vnode.hsProps.block;
-      if(block){
-        bundle.blocks[block] = vnode;
-      }
-      enterVNodeChildren(vnode.children);
-    }
-    function enterVNodeChildren(children){
-      for (let cI = 0, cL = children.length; cI < cL; cI++) {
-        const vnode = children[cI];
-        enterVNode(vnode);
-      }
-    }
-    enterVNode(rootVNode);
-    return bundle;
-  }
-
   function renderHyperScriptNode(vnode, formatter) {
-    if (vnode.type === 1){
-      if(vnode.children.length === 0)
+    if (vnode.type === 1) {
+      if (vnode.children.length === 0)
         return formatter.line(`t('${vnode.tag}'${vnode.namespace ? `,'${vnode.namespace}'` : ''}),${renderHyperScriptNodeAttributes(vnode.attributes)}t(),`)
       return formatter.line(`t('${vnode.tag}'${vnode.namespace ? `,'${vnode.namespace}'` : ''}),${renderHyperScriptNodeAttributes(vnode.attributes)}`)
-      .tab()
+        .tab()
         .line(renderHyperScriptNodeChildren(vnode.children, formatter))
         .untab()
-      .line('t(),');
+        .line('t(),');
     }
     if (vnode.type === 3)
       return formatter.line(`${minify ? refernces.textMethodName.min : refernces.textMethodName.dev}\`${vnode.content}\``);
@@ -144,7 +138,7 @@ let HSConverter = (function () {
   }
 
   function cleanHtml(innerHTML) {
-    return innerHTML.replaceAll(/[\r\n\t]/gi, '').replaceAll(/\s\s+/gi, ' ').replaceAll(/>\s</gi, '><');
+    return innerHTML.trim().replaceAll(/[\r\n\t]/gi, '').replaceAll(/\s\s+/gi, ' ').replaceAll(/>\s</gi, '><');
   }
 
   function convertToVNode(data) {
@@ -160,9 +154,7 @@ let HSConverter = (function () {
   }
 
   function convertToHS(data, formatter) {
-    let vnode = convertToVNode(data);
-    console.log(normalizeBundle(vnode));
-    renderHyperScriptNode(vnode, formatter);
+    renderHyperScriptNode(convertToVNode(data), formatter);
   }
 
   function minifyReferences() {
@@ -174,23 +166,23 @@ let HSConverter = (function () {
   }
 
   function renderBundle(data) {
-    let bundle = new CodeFormatter(true)
-    .line('let ' + Object.keys(data).join() + ';')
-    .line('(function(){')
-    .tab()
+    let bundle = new CodeFormatter()
+      .line('let ' + Object.keys(data).join() + ';')
+      .line('(function(){')
+      .tab()
       .line(minifyReferences());
     for (let element in data) {
       bundle
-      .line(`${element}=function(){`)
-      .tab()
+        .line(`${element}=function(){`)
+        .tab()
         .line(convertToHS(data[element], bundle))
         .untab()
-      .line('}')
+        .line('}')
     }
     bundle
-    .untab()
-    .line('})();')
-    return bundle.text;
+      .untab()
+      .line('})();')
+    return bundle.render();
   }
 
   return {
