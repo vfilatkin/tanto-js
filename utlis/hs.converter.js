@@ -52,36 +52,51 @@ let HSConverter = (function () {
     eventListenerMethodName: { dev: 't.on', min: 'o' },
   }
 
-  let DOMIndex = 0;
-  function VNode(node) {
-    let
-      tag = node.tagName,
-      [namespace, attributes, hsProps] = getVNodeAttributes(node);
-    return {
-      index: DOMIndex++,
-      type: node.nodeType,
-      tag: tag ? tag.toLowerCase() : null,
-      namespace: namespace,
-      attributes: attributes,
-      children: VNodeChildren(node),
-      content: tag ? null : node.textContent,
-      hsProps: hsProps
-    }
-  }
+  let currentBlock = new CodeFormatter();
+  const BLOCKS = {__root__: currentBlock};
 
-  function VNodeChildren(node) {
+  function renderNode(node) {
     let
-      children = [],
-      cL;
-    if (node.childNodes && (cL = node.childNodes.length)) {
-      for (let cI = 0; cI < cL; cI++) {
-        children.push(VNode(node.childNodes[cI]));
+      pBlock = currentBlock,
+      type = node.nodeType,
+      tag = node.tagName? node.tagName.toLowerCase(): null,
+      [namespace, attributes, hsProps] = getNodeAttributes(node),
+      content = tag ? null : node.textContent;
+      if(hsProps.block) {
+        currentBlock.line(hsProps.block + '()')
+        currentBlock = BLOCKS[hsProps.block] = new CodeFormatter();
       }
-    }
-    return children;
+      switch(type){
+        case 1:
+          /* Node contains no child nodes. */
+          if (node.children.length === 0){
+            currentBlock.line(`t('${tag}'${namespace ? `,'${namespace}'` : ''}),${renderNodeAttributes(attributes)}t(),`);
+          } else {
+            /* Node contains child nodes. */
+            currentBlock.line(`t('${tag}'${namespace ? `,'${namespace}'` : ''}),${renderNodeAttributes(attributes)}`).tab();
+            renderNodeChildren(node.children);
+            currentBlock.untab()
+              .line('t()');
+          }
+          break;
+        case 3:
+          currentBlock.line(`${minify ? refernces.textMethodName.min : refernces.textMethodName.dev}\`${content}\``);
+          break;
+        case 8:
+          currentBlock.line(`${minify ? refernces.commentMethodName.min : refernces.commentMethodName.dev}\`${content}\``);
+          break;
+      }
+      currentBlock = pBlock;
   }
 
-  function getVNodeAttributes(node) {
+  function renderNodeChildren(children) {
+    for (let cI = 0, cL = children.length; cI < cL; cI++) {
+      const node = children[cI];
+      renderNode(node);
+    }
+  }
+
+  function getNodeAttributes(node) {
     let
       namespace,
       attributes = [],
@@ -105,30 +120,7 @@ let HSConverter = (function () {
     return [namespace, attributes, hsProps];
   }
 
-  function renderHyperScriptNode(vnode, formatter) {
-    if (vnode.type === 1) {
-      if (vnode.children.length === 0)
-        return formatter.line(`t('${vnode.tag}'${vnode.namespace ? `,'${vnode.namespace}'` : ''}),${renderHyperScriptNodeAttributes(vnode.attributes)}t(),`)
-      return formatter.line(`t('${vnode.tag}'${vnode.namespace ? `,'${vnode.namespace}'` : ''}),${renderHyperScriptNodeAttributes(vnode.attributes)}`)
-        .tab()
-        .line(renderHyperScriptNodeChildren(vnode.children, formatter))
-        .untab()
-        .line('t(),');
-    }
-    if (vnode.type === 3)
-      return formatter.line(`${minify ? refernces.textMethodName.min : refernces.textMethodName.dev}\`${vnode.content}\``);
-    if (vnode.type === 8)
-      return formatter.line(`${minify ? refernces.commentMethodName.min : refernces.commentMethodName.dev}\`${vnode.content}\``);
-  }
-
-  function renderHyperScriptNodeChildren(children, formatter) {
-    for (let cI = 0, cL = children.length; cI < cL; cI++) {
-      const vnode = children[cI];
-      renderHyperScriptNode(vnode, formatter);
-    }
-  }
-
-  function renderHyperScriptNodeAttributes(attributes) {
+  function renderNodeAttributes(attributes) {
     let text = '';
     for (let aI = 0, aL = attributes.length; aI < aL; aI++) {
       const attribute = attributes[aI];
@@ -141,23 +133,19 @@ let HSConverter = (function () {
     return innerHTML.trim().replaceAll(/[\r\n\t]/gi, '').replaceAll(/\s\s+/gi, ' ').replaceAll(/>\s</gi, '><');
   }
 
-  function convertToVNode(data) {
+  function getRootNode(data) {
     let element;
     if (typeof data === 'string') {
       element = document.createElement('div');
       element.innerHTML = cleanHtml(data);
-      return VNode(element.firstElementChild);
+      return element.firstElementChild;
     }
     element = data.cloneNode(true);
     element.innerHTML = cleanHtml(element.innerHTML);
-    return VNode(element);
+    return element;
   }
 
-  function convertToHS(data, formatter) {
-    renderHyperScriptNode(convertToVNode(data), formatter);
-  }
-
-  function minifyReferences() {
+  function minifyRendererReferences() {
     let methods = [];
     for (const method in refernces) {
       methods.push(`${refernces[method].min}=${refernces[method].dev}`);
@@ -165,28 +153,29 @@ let HSConverter = (function () {
     return 'let ' + methods.join(',') + ';'
   }
 
-  function renderBundle(data) {
-    let bundle = new CodeFormatter()
-      .line('let ' + Object.keys(data).join() + ';')
-      .line('(function(){')
-      .tab()
-      .line(minifyReferences());
-    for (let element in data) {
-      bundle
-        .line(`${element}=function(){`)
-        .tab()
-        .line(convertToHS(data[element], bundle))
-        .untab()
-        .line('}')
+  function renderBundle(data){
+    /* Get first node from text or element. */
+    let rootNode = getRootNode(data);
+
+
+    /* Create bunlde module. */
+    let module = new CodeFormatter()
+    .line('(function(){')
+    .tab()
+      .line(minifyRendererReferences());
+    renderNode(rootNode);
+    console.log(BLOCKS);
+    for (let block in BLOCKS) {
+      console.log(block);
+      module.append(BLOCKS[block])
     }
-    bundle
-      .untab()
-      .line('})();')
-    return bundle.render();
+    module
+    .untab()
+    .line('})();')
+    return module.render();
   }
 
   return {
-    convert: convertToHS,
     bundle: renderBundle
   };
 })();

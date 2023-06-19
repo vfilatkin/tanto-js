@@ -6,9 +6,7 @@
     <script src="../utlis/hs.converter.js"></script>
     <script>
       document.addEventListener('DOMContentLoaded', function(){
-        const source = HSConverter.bundle({
-          MainMenu: document.getElementById('mainMenu'),
-        });
+        const source = HSConverter.bundle(document.getElementById('mainMenu'));
         console.log(source);
       });
     </script>
