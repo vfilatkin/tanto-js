@@ -4,7 +4,7 @@ let HSConverter = (function () {
     this.tabSpaces = tabSpaces || 2;
     this.tabLevel = 0;
     this.text = [];
-
+    this.data = {};
     this.tab = function () {
       this.tabLevel++;
       return this;
@@ -24,7 +24,7 @@ let HSConverter = (function () {
 
     this.line = function (lineText) {
       if (!lineText) return this;
-      this.text.push({tabs: this.tabLevel, text:lineText });
+      this.text.push({ tabs: this.tabLevel, text: lineText });
       return this;
     }
 
@@ -52,47 +52,52 @@ let HSConverter = (function () {
     eventListenerMethodName: { dev: 't.on', min: 'o' },
   }
 
-  let currentBlock = new CodeFormatter();
-  const BLOCKS = {__root__: currentBlock};
+  let currentFragment = new CodeFormatter();
+  const FRAGMENTS = { __root__: currentFragment };
 
   function renderNode(node) {
     let
-      pBlock = currentBlock,
+      pFragment = currentFragment,
       type = node.nodeType,
-      tag = node.tagName? node.tagName.toLowerCase(): null,
+      tag = node.tagName ? node.tagName.toLowerCase() : null,
       [namespace, attributes, hsProps] = getNodeAttributes(node),
       content = tag ? null : node.textContent;
-      if(hsProps.block) {
-        currentBlock.line(hsProps.block + '()')
-        currentBlock = BLOCKS[hsProps.block] = new CodeFormatter();
-      }
-      switch(type){
-        case 1:
-          /* Node contains no child nodes. */
-          if (node.children.length === 0){
-            currentBlock.line(`t('${tag}'${namespace ? `,'${namespace}'` : ''}),${renderNodeAttributes(attributes)}t(),`);
-          } else {
-            /* Node contains child nodes. */
-            currentBlock.line(`t('${tag}'${namespace ? `,'${namespace}'` : ''}),${renderNodeAttributes(attributes)}`).tab();
-            renderNodeChildren(node.children);
-            currentBlock.untab()
-              .line('t()');
-          }
-          break;
-        case 3:
-          currentBlock.line(`${minify ? refernces.textMethodName.min : refernces.textMethodName.dev}\`${content}\``);
-          break;
-        case 8:
-          currentBlock.line(`${minify ? refernces.commentMethodName.min : refernces.commentMethodName.dev}\`${content}\``);
-          break;
-      }
-      currentBlock = pBlock;
+    if (hsProps.fragment) {
+      currentFragment.line(hsProps.fragment + '(),')
+      currentFragment = FRAGMENTS[hsProps.fragment] = new CodeFormatter();
+    }
+    let prefix = '';
+    if (hsProps.block) {
+      prefix = `e.${hsProps.block}=`;
+      currentFragment.data.hasBlocks = true;
+    }
+    switch (type) {
+      case 1:
+        /* Node contains no child nodes. */
+        if (node.children.length === 0) {
+          currentFragment.line(`${prefix}t('${tag}'${namespace ? `,'${namespace}'` : ''}),${renderNodeAttributes(attributes)}t(),`);
+        } else {
+          /* Node contains child nodes. */
+          currentFragment.line(`${prefix}t('${tag}'${namespace ? `,'${namespace}'` : ''}),${renderNodeAttributes(attributes)}`).tab();
+          renderNodeChildren(node.children);
+          currentFragment.untab()
+            .line(`t(),`);
+        }
+        break;
+      case 3:
+        currentFragment.line(`${minify ? refernces.textMethodName.min : refernces.textMethodName.dev}\`${content}\``);
+        break;
+      case 8:
+        currentFragment.line(`${minify ? refernces.commentMethodName.min : refernces.commentMethodName.dev}\`${content}\``);
+        break;
+    }
+    currentFragment = pFragment;
   }
 
   function renderNodeChildren(children) {
     for (let cI = 0, cL = children.length; cI < cL; cI++) {
       const node = children[cI];
-      renderNode(node);
+      renderNode(node, (cI + 1) === cL);
     }
   }
 
@@ -107,6 +112,9 @@ let HSConverter = (function () {
           switch (attribute.name) {
             case 'xmlns':
               namespace = attribute.value;
+              break;
+            case 'fragment':
+              hsProps[attribute.name] = attribute.value + 'Fragment';
               break;
             case 'block':
               hsProps[attribute.name] = attribute.value;
@@ -153,25 +161,54 @@ let HSConverter = (function () {
     return 'let ' + methods.join(',') + ';'
   }
 
-  function renderBundle(data){
+  function renderFragment(name, code) {
+    let fragment = new CodeFormatter()
+      .line(`${name}=function(){`)
+      .tab();
+      if(code.data.hasBlocks) {
+        fragment.line('let e={};');
+        fragment
+        .tab()
+        .append(code)
+        .untab();
+        fragment.line('return e;');
+        fragment.untab()
+        .line('}');
+      } else {
+        fragment
+        .line('return (')
+        .tab()
+        .tab()
+        .append(code)
+        .untab()
+        .untab()
+        .line(');')
+        .untab()
+        .line('}');
+      }
+
+    return fragment;
+  }
+
+  function renderBundle(data) {
     /* Get first node from text or element. */
     let rootNode = getRootNode(data);
 
-
+    renderNode(rootNode);
+    delete FRAGMENTS.__root__
     /* Create bunlde module. */
     let module = new CodeFormatter()
-    .line('(function(){')
-    .tab()
+      .line(`let ${Object.keys(FRAGMENTS).join()};`)
+      .line('(function(){')
+      .tab()
       .line(minifyRendererReferences());
-    renderNode(rootNode);
-    console.log(BLOCKS);
-    for (let block in BLOCKS) {
-      console.log(block);
-      module.append(BLOCKS[block])
+    
+    for (let block in FRAGMENTS) {
+      module.append(renderFragment(block, FRAGMENTS[block]))
     }
     module
-    .untab()
-    .line('})();')
+      .untab()
+      .line('})();')
     return module.render();
   }
 
