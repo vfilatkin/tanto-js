@@ -1,10 +1,13 @@
 let HSConverter = (function () {
+  let config = {
+    minifyReferences: true,
+    minifyFragments: false,
+  }
 
   function CodeFormatter(tabSpaces) {
     this.tabSpaces = tabSpaces || 2;
     this.tabLevel = 0;
     this.text = [];
-    this.data = {};
     this.tab = function () {
       this.tabLevel++;
       return this;
@@ -35,15 +38,17 @@ let HSConverter = (function () {
         if (line instanceof CodeFormatter) {
           text += line.render();
         } else {
-          let spaces = ' '.repeat(this.tabSpaces).repeat(this.tabLevel + line.tabs)
-          text += spaces + (line.text ? line.text : '') + '\n';
+          if (config.minifyFragments) {
+            text += line.text ? line.text : '';
+          } else {
+            let spaces = ' '.repeat(this.tabSpaces).repeat(this.tabLevel + line.tabs)
+            text += spaces + (line.text ? line.text : '') + '\n';
+          }
         }
       }
       return text;
     }
   }
-
-  let minify = true;
 
   let refernces = {
     attributeMethodName: { dev: 't.attr', min: 'a' },
@@ -52,96 +57,159 @@ let HSConverter = (function () {
     eventListenerMethodName: { dev: 't.on', min: 'o' },
   }
 
-  let currentFragment = new CodeFormatter();
-  const FRAGMENTS = { __root__: currentFragment };
+  function toVNode(rootNode) {
 
-  function renderNode(node) {
-    let
-      pFragment = currentFragment,
-      type = node.nodeType,
-      tag = node.tagName ? node.tagName.toLowerCase() : null,
-      [namespace, attributes, hsProps] = getNodeAttributes(node),
-      content = tag ? null : node.textContent;
-    if (hsProps.fragment) {
-      currentFragment.line(hsProps.fragment + '(),')
-      currentFragment = FRAGMENTS[hsProps.fragment] = new CodeFormatter();
-    }
-    let prefix = '';
-    if (hsProps.block) {
-      prefix = `e.${hsProps.block}=`;
-      currentFragment.data.hasBlocks = true;
-    }
-    switch (type) {
-      case 1:
-        /* Node contains no child nodes. */
-        if (node.children.length === 0) {
-          currentFragment.line(`${prefix}t('${tag}'${namespace ? `,'${namespace}'` : ''}),${renderNodeAttributes(attributes)}t(),`);
-        } else {
-          /* Node contains child nodes. */
-          currentFragment.line(`${prefix}t('${tag}'${namespace ? `,'${namespace}'` : ''}),${renderNodeAttributes(attributes)}`).tab();
-          renderNodeChildren(node.children);
-          currentFragment.untab()
-            .line(`t(),`);
-        }
-        break;
-      case 3:
-        currentFragment.line(`${minify ? refernces.textMethodName.min : refernces.textMethodName.dev}\`${content}\``);
-        break;
-      case 8:
-        currentFragment.line(`${minify ? refernces.commentMethodName.min : refernces.commentMethodName.dev}\`${content}\``);
-        break;
-    }
-    currentFragment = pFragment;
-  }
+    let DOMIndex = 0;
 
-  function renderNodeChildren(children) {
-    for (let cI = 0, cL = children.length; cI < cL; cI++) {
-      const node = children[cI];
-      renderNode(node, (cI + 1) === cL);
+    const metaData = {
+      tagMap: {},
+      attributeMap: {},
+      valueMap: {}
     }
-  }
 
-  function getNodeAttributes(node) {
-    let
-      namespace,
-      attributes = [],
-      hsProps = {};
-    if (node.nodeType === Node.ELEMENT_NODE) {
-      if (node.hasAttributes()) {
-        for (const attribute of node.attributes) {
-          switch (attribute.name) {
-            case 'xmlns':
-              namespace = attribute.value;
-              break;
-            case 'fragment':
-              hsProps[attribute.name] = attribute.value + 'Fragment';
-              break;
-            case 'block':
-              hsProps[attribute.name] = attribute.value;
-              break;
-            default:
-              attributes.push({ name: attribute.name, value: attribute.value });
+    function VNode(node) {
+      let
+        tag = node.tagName ? node.tagName.toLowerCase(): null,
+        [namespace, attributes, hsProps] = getVNodeAttributes(node);
+      logKey('tagMap', tag);
+      return {
+        index: DOMIndex++,
+        type: node.nodeType,
+        tag: tag,
+        namespace: namespace,
+        attributes: attributes,
+        children: VNodeChildren(node),
+        content: tag ? null : node.textContent,
+        hsProps: hsProps
+      }
+    }
+
+    function logKey(map, key) {
+      if (metaData[map][key]) {
+        metaData[map][key]++;
+      } else {
+        metaData[map][key] = 1
+      }
+    }
+    
+    function logAttribute(attribute) {
+      logKey('attributeMap', attribute.name);
+      logKey('valueMap', attribute.value);
+    }
+
+    function getVNodeAttributes(node) {
+
+      let
+        namespace,
+        attributes = [],
+        hsProps = {};
+
+      if (node.nodeType === Node.ELEMENT_NODE) {
+        if (node.hasAttributes()) {
+          for (const attribute of node.attributes) {
+            switch (attribute.name) {
+              case 'xmlns':
+                namespace = attribute.value;
+                logAttribute(attribute);
+                break;
+              case 'fragment':
+                hsProps[attribute.name] = attribute.value + 'Fragment';
+                break;
+              case 'block':
+                hsProps[attribute.name] = attribute.value;
+                break;
+              default:
+                logAttribute(attribute);
+                attributes.push({ name: attribute.name, value: attribute.value });
+            }
           }
         }
       }
+      return [namespace, attributes, hsProps];
     }
-    return [namespace, attributes, hsProps];
+
+    function VNodeChildren(node) {
+      let
+        children = [],
+        cL;
+      if (node.childNodes && (cL = node.childNodes.length)) {
+        for (let cI = 0; cI < cL; cI++) {
+          children.push(VNode(node.childNodes[cI]));
+        }
+      }
+      return children;
+    }
+
+    return [VNode(rootNode), metaData];
+
   }
 
-  function renderNodeAttributes(attributes) {
-    let text = '';
-    for (let aI = 0, aL = attributes.length; aI < aL; aI++) {
-      const attribute = attributes[aI];
-      text += `${minify ? refernces.attributeMethodName.min : refernces.attributeMethodName.dev}('${attribute.name}','${attribute.value}'),`
+
+  function renderFragments(rootVNode, meta) {
+
+    let currentFragment = new CodeFormatter();
+    const FRAGMENTS = { __root__: currentFragment };
+
+    function renderNode(vnode, root) {
+      let pFragment = currentFragment;
+      if (vnode.hsProps.fragment) {
+        currentFragment.line(vnode.hsProps.fragment + '(),')
+        currentFragment = FRAGMENTS[vnode.hsProps.fragment] = new CodeFormatter();
+        root = true;
+      }
+      switch (vnode.type) {
+        case 1:
+          if (vnode.children.length === 0) {
+            currentFragment.line(`t('${vnode.tag}'${vnode.namespace ? `,'${vnode.namespace}'` : ''}),${renderNodeAttributes(vnode.attributes)}t(),`);
+          } else {
+            currentFragment.line(`t('${vnode.tag}'${vnode.namespace ? `,'${vnode.namespace}'` : ''}),${renderNodeAttributes(vnode.attributes)}`).tab();
+            renderNodeChildren(vnode.children);
+            currentFragment.untab()
+              .line(`t()${root ? '' : ','}`);
+          }
+          break;
+        case 3:
+          currentFragment.line(`${config.minifyReferences ? refernces.textMethodName.min : refernces.textMethodName.dev}\`${vnode.content}\``);
+          break;
+        case 8:
+          currentFragment.line(`${config.minifyReferences ? refernces.commentMethodName.min : refernces.commentMethodName.dev}\`${vnode.content}\``);
+          break;
+      }
+      currentFragment = pFragment;
     }
-    return text;
+
+    function renderNodeChildren(children) {
+      for (let cI = 0, cL = children.length; cI < cL; cI++) {
+        const vnode = children[cI];
+        renderNode(vnode);
+      }
+    }
+
+    function renderNodeAttributes(attributes) {
+      let text = '';
+      for (let aI = 0, aL = attributes.length; aI < aL; aI++) {
+        const attribute = attributes[aI];
+        text += `${config.minifyReferences ? refernces.attributeMethodName.min : refernces.attributeMethodName.dev}('${attribute.name}','${attribute.value}'),`
+      }
+      return text;
+    }
+
+    renderNode(rootVNode, true);
+
+    return FRAGMENTS;
   }
+
+
 
   function cleanHtml(innerHTML) {
-    return innerHTML.trim().replaceAll(/[\r\n\t]/gi, '').replaceAll(/\s\s+/gi, ' ').replaceAll(/>\s</gi, '><');
+    return innerHTML
+      .trim()
+      .replaceAll(/[\r\n\t]/gi, '')
+      .replaceAll(/\s\s+/gi, ' ')
+      .replaceAll(/>\s</gi, '><');
   }
 
-  function getRootNode(data) {
+  function toRootNode(data) {
     let element;
     if (typeof data === 'string') {
       element = document.createElement('div');
@@ -164,47 +232,38 @@ let HSConverter = (function () {
   function renderFragment(name, code) {
     let fragment = new CodeFormatter()
       .line(`${name}=function(){`)
-      .tab();
-      if(code.data.hasBlocks) {
-        fragment.line('let e={};');
-        fragment
-        .tab()
-        .append(code)
-        .untab();
-        fragment.line('return e;');
-        fragment.untab()
-        .line('}');
-      } else {
-        fragment
-        .line('return (')
-        .tab()
-        .tab()
-        .append(code)
-        .untab()
-        .untab()
-        .line(');')
-        .untab()
-        .line('}');
-      }
-
+      .tab()
+      .line('return (')
+      .tab()
+      .tab()
+      .append(code)
+      .untab()
+      .untab()
+      .line(')')
+      .untab()
+      .line('};');
     return fragment;
+
   }
+
 
   function renderBundle(data) {
     /* Get first node from text or element. */
-    let rootNode = getRootNode(data);
-
-    renderNode(rootNode);
-    delete FRAGMENTS.__root__
+    let
+      rootNode = toRootNode(data),
+      [rootVNode, metaData] = toVNode(rootNode),
+      fragments = renderFragments(rootVNode);
+    console.log(metaData);
+    delete fragments.__root__
     /* Create bunlde module. */
     let module = new CodeFormatter()
-      .line(`let ${Object.keys(FRAGMENTS).join()};`)
+      .line(`let ${Object.keys(fragments).join()};`)
       .line('(function(){')
       .tab()
       .line(minifyRendererReferences());
     
-    for (let block in FRAGMENTS) {
-      module.append(renderFragment(block, FRAGMENTS[block]))
+    for (let block in fragments) {
+      module.append(renderFragment(block, fragments[block]))
     }
     module
       .untab()
