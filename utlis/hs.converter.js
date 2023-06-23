@@ -48,6 +48,29 @@ let HSConverter = (function () {
       }
       return text;
     }
+
+  }
+
+  function numToChar(n) {
+    const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    let
+      cL = chars.length,
+      o = n - 1,
+      letters = chars[o % cL];
+    while ((o = Math.floor(o / cL)) > 0) {
+      letters = chars[--o % cL] + letters;
+    }
+    return letters;
+  }
+
+  function generateNamespace(length) {
+    let names = [];
+
+    for (let i = 0; i < length; i++) {
+      names.push(numToChar(i + 1));
+    }
+
+    return names;
   }
 
   let refernces = {
@@ -58,7 +81,6 @@ let HSConverter = (function () {
   }
 
   function toVNode(rootNode) {
-
     let DOMIndex = 0;
 
     const metaData = {
@@ -71,7 +93,9 @@ let HSConverter = (function () {
       let
         tag = node.tagName ? node.tagName.toLowerCase(): null,
         [namespace, attributes, hsProps] = getVNodeAttributes(node);
+
       logKey('tagMap', tag);
+
       return {
         index: DOMIndex++,
         type: node.nodeType,
@@ -88,7 +112,7 @@ let HSConverter = (function () {
       if (metaData[map][key]) {
         metaData[map][key]++;
       } else {
-        metaData[map][key] = 1
+        metaData[map][key] = 1;
       }
     }
     
@@ -98,7 +122,6 @@ let HSConverter = (function () {
     }
 
     function getVNodeAttributes(node) {
-
       let
         namespace,
         attributes = [],
@@ -125,6 +148,7 @@ let HSConverter = (function () {
           }
         }
       }
+
       return [namespace, attributes, hsProps];
     }
 
@@ -132,31 +156,33 @@ let HSConverter = (function () {
       let
         children = [],
         cL;
+
       if (node.childNodes && (cL = node.childNodes.length)) {
         for (let cI = 0; cI < cL; cI++) {
           children.push(VNode(node.childNodes[cI]));
         }
       }
+
       return children;
     }
 
     return [VNode(rootNode), metaData];
-
   }
 
 
   function renderFragments(rootVNode, meta) {
-
     let currentFragment = new CodeFormatter();
     const FRAGMENTS = { __root__: currentFragment };
 
     function renderNode(vnode, root) {
       let pFragment = currentFragment;
+
       if (vnode.hsProps.fragment) {
         currentFragment.line(vnode.hsProps.fragment + '(),')
         currentFragment = FRAGMENTS[vnode.hsProps.fragment] = new CodeFormatter();
         root = true;
       }
+
       switch (vnode.type) {
         case 1:
           if (vnode.children.length === 0) {
@@ -175,6 +201,7 @@ let HSConverter = (function () {
           currentFragment.line(`${config.minifyReferences ? refernces.commentMethodName.min : refernces.commentMethodName.dev}\`${vnode.content}\``);
           break;
       }
+
       currentFragment = pFragment;
     }
 
@@ -187,10 +214,12 @@ let HSConverter = (function () {
 
     function renderNodeAttributes(attributes) {
       let text = '';
+
       for (let aI = 0, aL = attributes.length; aI < aL; aI++) {
         const attribute = attributes[aI];
         text += `${config.minifyReferences ? refernces.attributeMethodName.min : refernces.attributeMethodName.dev}('${attribute.name}','${attribute.value}'),`
       }
+
       return text;
     }
 
@@ -198,8 +227,6 @@ let HSConverter = (function () {
 
     return FRAGMENTS;
   }
-
-
 
   function cleanHtml(innerHTML) {
     return innerHTML
@@ -211,21 +238,26 @@ let HSConverter = (function () {
 
   function toRootNode(data) {
     let element;
+
     if (typeof data === 'string') {
       element = document.createElement('div');
       element.innerHTML = cleanHtml(data);
       return element.firstElementChild;
     }
+
     element = data.cloneNode(true);
     element.innerHTML = cleanHtml(element.innerHTML);
+
     return element;
   }
 
   function minifyRendererReferences() {
     let methods = [];
+
     for (const method in refernces) {
       methods.push(`${refernces[method].min}=${refernces[method].dev}`);
     }
+
     return 'let ' + methods.join(',') + ';'
   }
 
@@ -242,8 +274,8 @@ let HSConverter = (function () {
       .line(')')
       .untab()
       .line('};');
-    return fragment;
 
+    return fragment;
   }
 
 
@@ -254,20 +286,24 @@ let HSConverter = (function () {
       [rootVNode, metaData] = toVNode(rootNode),
       fragments = renderFragments(rootVNode);
     console.log(metaData);
+
     delete fragments.__root__
+
     /* Create bunlde module. */
     let module = new CodeFormatter()
       .line(`let ${Object.keys(fragments).join()};`)
       .line('(function(){')
       .tab()
       .line(minifyRendererReferences());
-    
+
     for (let block in fragments) {
       module.append(renderFragment(block, fragments[block]))
     }
+
     module
       .untab()
-      .line('})();')
+      .line('})();');
+
     return module.render();
   }
 
