@@ -1,15 +1,6 @@
 let HSConverter = (function () {
   let config = {
-    keepFormatting: false,
-    minifyReferences: true,
-  }
-
-  const RENDERER_REFERENCES = {
-    T: 't',
-    ATTRIBUTE: 't.attr',
-    TEXT: 't.text',
-    COMMENT: 't.comment',
-    LISTENER: 't.on',
+    keepFormatting: true,
   }
 
   function CodeFormatter(tabSpaces) {
@@ -60,21 +51,17 @@ let HSConverter = (function () {
 
   function toVNode(rootNode) {
 
-    let DOMIndex = 0;
-
-    const metaData = {
-      tagMap: {},
-      attributeMap: {},
-      valueMap: {}
-    }
+    let DOMIndex = 0,
+        DOMDepth = 0;
 
     function VNode(node) {
       let
-        tag = node.tagName ? logKey('tagMap', `'${node.tagName.toLowerCase()}'`) : null,
+        tag = node.tagName? node.tagName.toLowerCase() : null,
         [namespace, attributes, hsProps] = getVNodeAttributes(node);
 
       return {
         index: DOMIndex++,
+        depth: DOMDepth,
         type: node.nodeType,
         tag: tag,
         namespace: namespace,
@@ -82,22 +69,6 @@ let HSConverter = (function () {
         children: VNodeChildren(node),
         content: tag ? null : node.textContent,
         hsProps: hsProps
-      }
-    }
-
-    function logKey(map, key) {
-      if (metaData[map][key]) {
-        metaData[map][key]++;
-      } else {
-        metaData[map][key] = 1
-      }
-      return key
-    }
-
-    function logAttribute(attribute) {
-      return {
-        name: logKey('attributeMap', `'${attribute.name}'`),
-        value: logKey('valueMap', `'${attribute.value}'`)
       }
     }
 
@@ -113,7 +84,7 @@ let HSConverter = (function () {
           for (const attribute of node.attributes) {
             switch (attribute.name) {
               case 'xmlns':
-                namespace = logAttribute(attribute).value;
+                namespace = attribute.value;
                 break;
               case 'fragment':
                 hsProps[attribute.name] = attribute.value + 'Fragment';
@@ -122,7 +93,7 @@ let HSConverter = (function () {
                 hsProps[attribute.name] = attribute.value;
                 break;
               default:
-                attributes.push(logAttribute(attribute));
+                attributes.push(attribute);
             }
           }
         }
@@ -135,68 +106,27 @@ let HSConverter = (function () {
         children = [],
         cL;
       if (node.childNodes && (cL = node.childNodes.length)) {
+        DOMDepth++;
         for (let cI = 0; cI < cL; cI++) {
           children.push(VNode(node.childNodes[cI]));
         }
+        DOMDepth--;
       }
       return children;
     }
 
-    metaData[0] = {
-      [RENDERER_REFERENCES.T]: 2,
-      [RENDERER_REFERENCES.ATTRIBUTE]: 2,
-      [RENDERER_REFERENCES.TEXT]: 2,
-      [RENDERER_REFERENCES.COMMENT]: 2,
-      [RENDERER_REFERENCES.LISTENER]: 2
-    }
-
-    return [VNode(rootNode), metaData];
+    return VNode(rootNode);
 
   }
 
-  function numToChar(n) {
-    const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
-    let
-      cL = chars.length,
-      o = n - 1,
-      letters = chars[o % cL];
-    while ((o = Math.floor(o / cL)) > 0) {
-      letters = chars[--o % cL] + letters;
-    }
-    return letters;
+  function collapseChildren(children){
+    
   }
 
-  function renderKeySpace(metaData) {
-    let
-      index = 0,
-      keys = [],
-      values = [];
-
-    for (let mapKey in metaData) {
-      const map = metaData[mapKey];
-      for (let key in map) {
-        const string = map[key];
-        if (string > 1) {
-          index++;
-          keys.push(map[key] = numToChar(index));
-          values.push(key);
-        } else {
-          map[key] = `${key}`;
-        }
-      }
-    }
-
-    return `let [${keys.join()}]=[${values.join()}];`
-  }
-
-  function renderFragments(rootVNode, metaData) {
+  function renderFragments(rootVNode) {
 
     let currentFragment = new CodeFormatter();
     const FRAGMENTS = { __root__: currentFragment };
-
-    function ref(map, key) {
-      return config.minifyReferences ? metaData[map][key] : key;
-    }
 
     function renderNode(vnode, root) {
       let pFragment = currentFragment;
@@ -208,19 +138,19 @@ let HSConverter = (function () {
       switch (vnode.type) {
         case 1:
           if (vnode.children.length === 0) {
-            currentFragment.line(`${ref(0, RENDERER_REFERENCES.T)}(${ref('tagMap', vnode.tag)}${vnode.namespace ? `,${ref('valueMap', vnode.namespace)}` : ''}),${renderNodeAttributes(vnode.attributes)}${metaData[0][RENDERER_REFERENCES.T]}(),`);
+            currentFragment.line(`t('${vnode.tag}'${vnode.namespace ? `,'${vnode.namespace}'` : ''}),${renderNodeAttributes(vnode.attributes)}t(),`);
           } else {
-            currentFragment.line(`${ref(0, RENDERER_REFERENCES.T)}(${ref('tagMap', vnode.tag)}${vnode.namespace ? `,${ref('valueMap', vnode.namespace)}` : ''}),${renderNodeAttributes(vnode.attributes)}`).tab();
+            currentFragment.line(`t('${vnode.tag}'${vnode.namespace ? `,'${vnode.namespace}'` : ''}),${renderNodeAttributes(vnode.attributes)}`).tab();
             renderNodeChildren(vnode.children);
             currentFragment.untab()
-              .line(`${ref(0, RENDERER_REFERENCES.T)}()${root ? '' : ','}`);
+              .line(`t()${root ? '' : ','}`);
           }
           break;
         case 3:
-          currentFragment.line(`${ref(0, RENDERER_REFERENCES.TEXT)}\`${vnode.content}\``);
+          currentFragment.line(`t.text\`${vnode.content}\``);
           break;
         case 8:
-          currentFragment.line(`${ref(0, RENDERER_REFERENCES.COMMENT)}\`${vnode.content}\``);
+          currentFragment.line(`t.comment\`${vnode.content}\``);
           break;
       }
       currentFragment = pFragment;
@@ -237,7 +167,7 @@ let HSConverter = (function () {
       let text = '';
       for (let aI = 0, aL = attributes.length; aI < aL; aI++) {
         const attribute = attributes[aI];
-        text += `${ref(0, RENDERER_REFERENCES.ATTRIBUTE)}(${ref('attributeMap', attribute.name)},${ref('valueMap', attribute.value)}),`
+        text += `t.attr('${attribute.name}','${attribute.value}'),`
       }
       return text;
     }
@@ -287,17 +217,14 @@ let HSConverter = (function () {
     /* Get first node from text or element. */
     let
       rootNode = toRootNode(data),
-      [rootVNode, metaData] = toVNode(rootNode),
-      keySpace = renderKeySpace(metaData);
-    let
-      fragments = renderFragments(rootVNode, metaData);
+      rootVNode = toVNode(rootNode),
+      fragments = renderFragments(rootVNode);
     delete fragments.__root__
     /* Create bunlde module. */
     let module = new CodeFormatter()
       .line(`let ${Object.keys(fragments).join()};`)
       .line('(function(){')
-      .tab()
-        .line(keySpace);
+      .tab();
     for (let block in fragments) {
       module.append(renderFragment(block, fragments[block]))
     }
