@@ -1,5 +1,7 @@
 let HSConverter = (function () {
+
   let config = {
+    keepDOMStructure: false,
     keepFormatting: true,
   }
 
@@ -51,8 +53,9 @@ let HSConverter = (function () {
 
   function toVNode(rootNode) {
 
-    let DOMIndex = 0,
-        DOMDepth = 0;
+    let 
+      DOMIndex = 0,
+      DOMDepth = 0;
 
     function VNode(node) {
       let
@@ -105,13 +108,13 @@ let HSConverter = (function () {
       let
         children = [],
         cL;
+      DOMDepth++;
       if (node.childNodes && (cL = node.childNodes.length)) {
-        DOMDepth++;
         for (let cI = 0; cI < cL; cI++) {
           children.push(VNode(node.childNodes[cI]));
         }
-        DOMDepth--;
       }
+      DOMDepth--;
       return children;
     }
 
@@ -119,8 +122,23 @@ let HSConverter = (function () {
 
   }
 
-  function collapseChildren(children){
+  function optimizeDOMStructure(rootVNode){
+    let vnodes = [];
+
+    function flatVNode(vnode){
+      vnodes.push([vnode.tag, vnode.namespace, ...vnode.attributes]);
+      flatVNodeChildren(vnode.children)
+    }
+
+    function flatVNodeChildren(children){
+      for (let cI = 0, cL = children.length; cI < cL; cI++) {
+        flatVNode(children[cI]);
+      }
+    }
+
+    flatVNode(rootVNode);
     
+    console.log(vnodes);
   }
 
   function renderFragments(rootVNode) {
@@ -219,6 +237,7 @@ let HSConverter = (function () {
       rootNode = toRootNode(data),
       rootVNode = toVNode(rootNode),
       fragments = renderFragments(rootVNode);
+    optimizeDOMStructure(rootVNode);
     delete fragments.__root__
     /* Create bunlde module. */
     let module = new CodeFormatter()
