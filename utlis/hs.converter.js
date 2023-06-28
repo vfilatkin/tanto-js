@@ -96,7 +96,7 @@ let HSConverter = (function () {
                 hsProps[attribute.name] = attribute.value;
                 break;
               default:
-                attributes.push(attribute);
+                attributes.push({name: attribute.name, value: attribute.value});
             }
           }
         }
@@ -126,7 +126,7 @@ let HSConverter = (function () {
     let vnodes = [];
 
     function flatVNode(vnode){
-      vnodes.push([vnode.tag, vnode.namespace, ...vnode.attributes]);
+      vnodes.push({tag: vnode.tag, namespace: vnode.namespace, attributes: vnode.attributes});
       flatVNodeChildren(vnode.children)
     }
 
@@ -137,7 +137,7 @@ let HSConverter = (function () {
     }
 
     flatVNode(rootVNode);
-    
+
     console.log(vnodes);
   }
 
