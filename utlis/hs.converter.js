@@ -71,7 +71,8 @@ let HSConverter = (function () {
         attributes: attributes,
         children: VNodeChildren(node),
         content: tag ? null : node.textContent,
-        hsProps: hsProps
+        hsProps: hsProps,
+        referenceGroup: undefined, 
       }
     }
 
@@ -96,7 +97,7 @@ let HSConverter = (function () {
                 hsProps[attribute.name] = attribute.value;
                 break;
               default:
-                attributes.push(attribute);
+                attributes.push({name: attribute.name, value: attribute.value});
             }
           }
         }
@@ -123,22 +124,69 @@ let HSConverter = (function () {
   }
 
   function optimizeDOMStructure(rootVNode){
-    let vnodes = [];
+    let groups = {};
 
-    function flatVNode(vnode){
-      vnodes.push([vnode.tag, vnode.namespace, ...vnode.attributes]);
-      flatVNodeChildren(vnode.children)
+    function mapAttributes(groupAttributes, vnodeAttributes){
+      for (let aI = 0, aL = vnodeAttributes.length; aI < aL; aI++) {
+        const 
+        vnodeAttribute = vnodeAttributes[aI],
+        groupAttribute = groupAttributes[aI];
+        if(groupAttribute){
+          if(groupAttribute.name !== vnodeAttribute.name) groupAttribute.name = undefined;
+          if(groupAttribute.value !== vnodeAttribute.value) groupAttribute.value = undefined;
+        } else {
+          groupAttributes[aI] = vnodeAttribute;
+        }
+      }
+      groupAttributes.length = vnodeAttributes.length;
+      return groupAttributes;
     }
 
-    function flatVNodeChildren(children){
+    function fetchVNode(vNode){
+      let 
+      groupId = vNode.tag + vNode.attributes.length,
+      group = groups[groupId];
+      if(group){
+        group.vnodes.push(vNode);
+        mapAttributes(group.attributes, vNode.attributes);
+      } else {
+        groups[groupId] = {
+          tag: vNode.tag,
+          vnodes: [vNode],
+          namespace: vNode.namespace,
+          attributes: mapAttributes({}, vNode.attributes),
+          leaf: vNode.children.length === 0,
+          declaration: undefined,
+        };
+      }
+
+      fetchVNodeChildren(vNode.children);
+
+    }
+
+    function fetchVNodeChildren(children){
       for (let cI = 0, cL = children.length; cI < cL; cI++) {
-        flatVNode(children[cI]);
+        fetchVNode(children[cI]);
       }
     }
 
-    flatVNode(rootVNode);
-    
-    console.log(vnodes);
+
+    function createGroups(){
+      fetchVNode(rootVNode);
+      let groupIndex = 0;
+      for(let groupKey in groups){
+        const group = groups[groupKey];
+
+        if(group.vnodes.length !== 1){
+          group.declaration = new CodeFormatter()
+            .line(`function f${groupIndex}(){};`);
+          groupIndex++;
+        }
+      }
+      return groups;
+    }
+
+    console.log(createGroups());
   }
 
   function renderFragments(rootVNode) {
