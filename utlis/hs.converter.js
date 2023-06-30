@@ -98,6 +98,7 @@ let HSConverter = (function () {
                 break;
               default:
                 attributes.push({name: attribute.name, value: attribute.value});
+                attributes.push({name: attribute.name, value: attribute.value});
             }
           }
         }
