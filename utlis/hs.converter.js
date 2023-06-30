@@ -98,7 +98,6 @@ let HSConverter = (function () {
                 break;
               default:
                 attributes.push({name: attribute.name, value: attribute.value});
-                attributes.push({name: attribute.name, value: attribute.value});
             }
           }
         }
@@ -125,44 +124,50 @@ let HSConverter = (function () {
   }
 
   function optimizeDOMStructure(rootVNode){
-    let groups = {};
+    let vNodeGroups = {};
 
-    function mapAttributes(groupAttributes, vnodeAttributes){
-      for (let aI = 0, aL = vnodeAttributes.length; aI < aL; aI++) {
-        const 
-        vnodeAttribute = vnodeAttributes[aI],
-        groupAttribute = groupAttributes[aI];
-        if(groupAttribute){
-          if(groupAttribute.name !== vnodeAttribute.name) groupAttribute.name = undefined;
-          if(groupAttribute.value !== vnodeAttribute.value) groupAttribute.value = undefined;
-        } else {
-          groupAttributes[aI] = vnodeAttribute;
-        }
+    /**
+     * If attribute name or value can change -
+     * keep it's index as key in respective map.
+     */
+    function mapMutableAttributes(vNodeGroup, vNode){
+      for (let aI = 0, aL = vNode.attributes.length; aI < aL; aI++) {
+        const vNodeAttribute = vNode.attributes[aI];
+        const vNodeGroupAttribute = vNodeGroup.attributes[aI];
+        if(vNodeAttribute.name !== vNodeGroupAttribute.name) vNodeGroup.mutableNamesMap[aI] = true;
+        if(vNodeAttribute.value !== vNodeGroupAttribute.value) vNodeGroup.mutableValuesMap[aI] = true;
       }
-      groupAttributes.length = vnodeAttributes.length;
-      return groupAttributes;
     }
 
+    /* Get virtual node and push it into array. */
     function fetchVNode(vNode){
       let 
-      groupId = vNode.tag + vNode.attributes.length,
-      group = groups[groupId];
-      if(group){
-        group.vnodes.push(vNode);
-        mapAttributes(group.attributes, vNode.attributes);
+      /**
+       * Group key assumes two similarities 
+       * between group nodes - tag and number of
+       * attributes.
+      */
+      vNodeGroupKey = vNode.tag + vNode.attributes.length,
+      /* Find existing group. */
+      vNodeGroup = vNodeGroups[vNodeGroupKey];
+      
+      if(vNodeGroup){
+        vNodeGroup.vNodes.push(vNode);
+        mapMutableAttributes(vNodeGroup, vNode);
       } else {
-        groups[groupId] = {
+        vNodeGroups[vNodeGroupKey] = {
           tag: vNode.tag,
-          vnodes: [vNode],
           namespace: vNode.namespace,
-          attributes: mapAttributes({}, vNode.attributes),
+          attributes: vNode.attributes,
           leaf: vNode.children.length === 0,
-          declaration: undefined,
+          mutableNamesMap: {},
+          mutableValuesMap: {},
+          vNodes: [vNode],
+          template: null
         };
       }
 
       fetchVNodeChildren(vNode.children);
-
     }
 
     function fetchVNodeChildren(children){
@@ -171,20 +176,37 @@ let HSConverter = (function () {
       }
     }
 
+    function renderVNodeGroupTemplate(index, vNodeGroup){
+      let 
+        parameters = [];
+        elementAttributes = [];
+
+      for(let aI = 0, attributes = vNodeGroup.attributes, aL = attributes.length; aI < aL; aI++ ){
+        const attribute = attributes[aI];
+        let 
+          name = `'${attribute.name}'`,
+          value = `'${attribute.value}'`;
+        if(vNodeGroup.mutableNamesMap[aI]) { parameters.push(name = ('a' + aI));}
+        if(vNodeGroup.mutableValuesMap[aI]) { parameters.push(value = ('v' + aI));}
+        elementAttributes.push(`t.attr(${name},${value})`)
+      }
+
+      let element = `t('${vNodeGroup.tag}'${vNodeGroup.namespace ? `,'${vNodeGroup.namespace}'` : ''})`;
+      
+      return `function f${index}(${parameters.join()}){return ${element},${elementAttributes.join()}${vNodeGroup.leaf? ',t()':''}}`;
+    }
 
     function createGroups(){
       fetchVNode(rootVNode);
-      let groupIndex = 0;
-      for(let groupKey in groups){
-        const group = groups[groupKey];
-
-        if(group.vnodes.length !== 1){
-          group.declaration = new CodeFormatter()
-            .line(`function f${groupIndex}(){};`);
-          groupIndex++;
-        }
+      let vNodeGroupIndex = 0;
+      for(let vNodeGroupKey in vNodeGroups){
+        const vNodeGroup = vNodeGroups[vNodeGroupKey];
+        if(vNodeGroup.vNodes.length > 1) {
+          vNodeGroup.template = renderVNodeGroupTemplate(vNodeGroupIndex, vNodeGroup) 
+          vNodeGroupIndex++;
+        }        
       }
-      return groups;
+      return vNodeGroups;
     }
 
     console.log(createGroups());
