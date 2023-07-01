@@ -2,7 +2,8 @@ let HSConverter = (function () {
 
   let config = {
     keepDOMStructure: false,
-    keepFormatting: true,
+    keepFormatting: false,
+    useArrowFunctionTemplates: true
   }
 
   function CodeFormatter(tabSpaces) {
@@ -72,7 +73,7 @@ let HSConverter = (function () {
         children: VNodeChildren(node),
         content: tag ? null : node.textContent,
         hsProps: hsProps,
-        referenceGroup: undefined, 
+        reference: undefined, 
       }
     }
 
@@ -91,7 +92,7 @@ let HSConverter = (function () {
                 namespace = attribute.value;
                 break;
               case 'fragment':
-                hsProps[attribute.name] = attribute.value + 'Fragment';
+                hsProps[attribute.name] = attribute.value;
                 break;
               case 'block':
                 hsProps[attribute.name] = attribute.value;
@@ -124,46 +125,47 @@ let HSConverter = (function () {
   }
 
   function optimizeDOMStructure(rootVNode){
-    let vNodeGroups = {};
-
+    let vNodeReferences = {};
     /**
      * If attribute name or value can change -
      * keep it's index as key in respective map.
      */
     function mapMutableAttributes(vNodeGroup, vNode){
       for (let aI = 0, aL = vNode.attributes.length; aI < aL; aI++) {
-        const vNodeAttribute = vNode.attributes[aI];
-        const vNodeGroupAttribute = vNodeGroup.attributes[aI];
+        let 
+          vNodeAttribute = vNode.attributes[aI],
+          vNodeGroupAttribute = vNodeGroup.attributes[aI];
         if(vNodeAttribute.name !== vNodeGroupAttribute.name) vNodeGroup.mutableNamesMap[aI] = true;
         if(vNodeAttribute.value !== vNodeGroupAttribute.value) vNodeGroup.mutableValuesMap[aI] = true;
       }
     }
-
     /* Get virtual node and push it into array. */
     function fetchVNode(vNode){
       let 
-      /**
-       * Group key assumes two similarities 
-       * between group nodes - tag and number of
-       * attributes.
-      */
-      vNodeGroupKey = vNode.tag + vNode.attributes.length,
-      /* Find existing group. */
-      vNodeGroup = vNodeGroups[vNodeGroupKey];
-      
-      if(vNodeGroup){
-        vNodeGroup.vNodes.push(vNode);
-        mapMutableAttributes(vNodeGroup, vNode);
+        /**
+         * Reference key assumes two similarities 
+         * between nodes - tag and number of
+         * attributes.
+        */
+        vNodeReferenceKey = vNode.tag + vNode.attributes.length,
+        /* Find reference (if it's exists). */
+        vNodeReference = vNodeReferences[vNodeReferenceKey];
+        /* Assign reference to VNode. */
+        vNode.reference = vNodeReferenceKey;
+
+      if(vNodeReference){
+        vNodeReference.vNodes.push(vNode);
+        mapMutableAttributes(vNodeReference, vNode);
       } else {
-        vNodeGroups[vNodeGroupKey] = {
+        vNodeReferences[vNodeReferenceKey] = {
           tag: vNode.tag,
           namespace: vNode.namespace,
           attributes: vNode.attributes,
-          leaf: vNode.children.length === 0,
           mutableNamesMap: {},
           mutableValuesMap: {},
           vNodes: [vNode],
-          template: null
+          used: false,
+          template: null,
         };
       }
 
@@ -176,70 +178,103 @@ let HSConverter = (function () {
       }
     }
 
-    function renderVNodeGroupTemplate(index, vNodeGroup){
+    function renderVNodeReferenceTemplate(vNodeReference){
       let 
         parameters = [];
         elementAttributes = [];
 
-      for(let aI = 0, attributes = vNodeGroup.attributes, aL = attributes.length; aI < aL; aI++ ){
-        const attribute = attributes[aI];
+      for(let aI = 0, attributes = vNodeReference.attributes, aL = attributes.length; aI < aL; aI++ ){
+        let attribute = attributes[aI];
         let 
           name = `'${attribute.name}'`,
           value = `'${attribute.value}'`;
-        if(vNodeGroup.mutableNamesMap[aI]) { parameters.push(name = ('a' + aI));}
-        if(vNodeGroup.mutableValuesMap[aI]) { parameters.push(value = ('v' + aI));}
+        if(vNodeReference.mutableNamesMap[aI]) { parameters.push(name = ('a' + aI));}
+        if(vNodeReference.mutableValuesMap[aI]) { parameters.push(value = ('v' + aI));}
         elementAttributes.push(`t.attr(${name},${value})`)
       }
-
-      let element = `t('${vNodeGroup.tag}'${vNodeGroup.namespace ? `,'${vNodeGroup.namespace}'` : ''})`;
       
-      return `function f${index}(${parameters.join()}){return ${element},${elementAttributes.join()}${vNodeGroup.leaf? ',t()':''}}`;
+      return new CodeFormatter()
+      .line(config.useArrowFunctionTemplates? 
+        `${vNodeReference.name}=(${parameters.join()})=>{`:
+        `function ${vNodeReference.name}(${parameters.join()}){`
+      )
+      .tab()
+        .line(`return t('${vNodeReference.tag}'${vNodeReference.namespace ? `,'${vNodeReference.namespace}'` : ''}),${elementAttributes.join()}`)
+        .untab()
+      .line('};');
     }
 
-    function createGroups(){
+    function createReferences(){
       fetchVNode(rootVNode);
-      let vNodeGroupIndex = 0;
-      for(let vNodeGroupKey in vNodeGroups){
-        const vNodeGroup = vNodeGroups[vNodeGroupKey];
-        if(vNodeGroup.vNodes.length > 1) {
-          vNodeGroup.template = renderVNodeGroupTemplate(vNodeGroupIndex, vNodeGroup) 
-          vNodeGroupIndex++;
-        }        
+      let vNodeReferenceIndex = 0;
+      for(let vNodeReferenceKey in vNodeReferences){
+        let vNodeReference = vNodeReferences[vNodeReferenceKey];
+        if(vNodeReference.vNodes.length > 1) {
+          vNodeReference.name = 'f' + vNodeReferenceIndex;
+          vNodeReference.template = renderVNodeReferenceTemplate(vNodeReference);
+          vNodeReference.used = true;
+          vNodeReferenceIndex++;
+        } 
       }
-      return vNodeGroups;
+      return vNodeReferences;
     }
 
-    console.log(createGroups());
+    return createReferences();
   }
 
-  function renderFragments(rootVNode) {
+  function renderFragments(rootVNode, references) {
 
     let currentFragment = new CodeFormatter();
     const FRAGMENTS = { __root__: currentFragment };
 
-    function renderNode(vnode, root) {
+    function renderNodeHeader(vNode, reference){
+      if(!reference.used) return `t('${vNode.tag}'${vNode.namespace ? `,'${vNode.namespace}'` : ''}),${renderElementNodeAttributes(vNode.attributes)}`;
+      return `${reference.name}(${renderElementNodeAttributes(vNode.attributes, reference)})`;
+    }
+
+    function renderElementNodeAttributes(attributes, reference) {
+      let text = [];
+      for (let aI = 0, aL = attributes.length; aI < aL; aI++) {
+        const attribute = attributes[aI];
+        if(!reference){
+          text.push(`t.attr('${attribute.name}','${attribute.value}')`)
+        } else {
+          if(reference.mutableNamesMap[aI]) text.push(`'${attribute.name}'`);
+          if(reference.mutableValuesMap[aI]) text.push(`'${attribute.value}'`);
+        }
+      }
+      return text.join();
+    }
+
+    function renderElementNode(vNode, root){
+      let reference = references[vNode.reference];
+      if (vNode.children.length === 0) {
+        currentFragment.line(`${renderNodeHeader(vNode, reference)},t(),`);
+      } else {
+        currentFragment.line(`${renderNodeHeader(vNode, reference)},`)
+        .tab();
+          renderNodeChildren(vNode.children);
+          currentFragment.untab()
+        .line(`t()${root ? '' : ','}`);
+      }
+    }
+
+    function renderNode(vNode, root) {
       let pFragment = currentFragment;
-      if (vnode.hsProps.fragment) {
-        currentFragment.line(vnode.hsProps.fragment + '(),')
-        currentFragment = FRAGMENTS[vnode.hsProps.fragment] = new CodeFormatter();
+      if (vNode.hsProps.fragment) {
+        currentFragment.line(vNode.hsProps.fragment + '(),')  
+        currentFragment = FRAGMENTS[vNode.hsProps.fragment] = new CodeFormatter();
         root = true;
       }
-      switch (vnode.type) {
+      switch (vNode.type) {
         case 1:
-          if (vnode.children.length === 0) {
-            currentFragment.line(`t('${vnode.tag}'${vnode.namespace ? `,'${vnode.namespace}'` : ''}),${renderNodeAttributes(vnode.attributes)}t(),`);
-          } else {
-            currentFragment.line(`t('${vnode.tag}'${vnode.namespace ? `,'${vnode.namespace}'` : ''}),${renderNodeAttributes(vnode.attributes)}`).tab();
-            renderNodeChildren(vnode.children);
-            currentFragment.untab()
-              .line(`t()${root ? '' : ','}`);
-          }
+          renderElementNode(vNode, root);
           break;
         case 3:
-          currentFragment.line(`t.text\`${vnode.content}\``);
+          currentFragment.line(`t.text\`${vNode.content}\``);
           break;
         case 8:
-          currentFragment.line(`t.comment\`${vnode.content}\``);
+          currentFragment.line(`t.comment\`${vNode.content}\``);
           break;
       }
       currentFragment = pFragment;
@@ -250,15 +285,6 @@ let HSConverter = (function () {
         const vnode = children[cI];
         renderNode(vnode);
       }
-    }
-
-    function renderNodeAttributes(attributes) {
-      let text = '';
-      for (let aI = 0, aL = attributes.length; aI < aL; aI++) {
-        const attribute = attributes[aI];
-        text += `t.attr('${attribute.name}','${attribute.value}'),`
-      }
-      return text;
     }
 
     renderNode(rootVNode, true);
@@ -288,16 +314,16 @@ let HSConverter = (function () {
 
   function renderFragment(name, code) {
     let fragment = new CodeFormatter()
-      .line(`${name}=function(){`)
+      .line(`${name}=${config.useArrowFunctionTemplates? `()=>{`: `function (){`}`)
       .tab()
-      .line('return (')
-      .tab()
-      .tab()
-      .append(code)
-      .untab()
-      .untab()
-      .line(')')
-      .untab()
+        .line('return (')
+          .tab()
+          .tab()
+          .append(code)
+          .untab()
+          .untab()
+        .line(')')
+        .untab()
       .line('};');
     return fragment;
   }
@@ -307,14 +333,19 @@ let HSConverter = (function () {
     let
       rootNode = toRootNode(data),
       rootVNode = toVNode(rootNode),
-      fragments = renderFragments(rootVNode);
-    optimizeDOMStructure(rootVNode);
+      references = optimizeDOMStructure(rootVNode),
+      fragments = renderFragments(rootVNode, references);
     delete fragments.__root__
     /* Create bunlde module. */
     let module = new CodeFormatter()
       .line(`let ${Object.keys(fragments).join()};`)
       .line('(function(){')
       .tab();
+    for (let referenceKey in references) {
+      const reference = references[referenceKey];
+      if(reference.used)
+        module.append(reference.template);
+    }
     for (let block in fragments) {
       module.append(renderFragment(block, fragments[block]))
     }

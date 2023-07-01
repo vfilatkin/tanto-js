@@ -6,8 +6,9 @@
     <script src="../utlis/hs.converter.js"></script>
     <script>
       document.addEventListener('DOMContentLoaded', function(){
-        const source = HSConverter.bundle(document.getElementById('mainMenu'));
-        console.log(source, source.length);
+        element = document.getElementById('mainMenu');
+        const source = HSConverter.bundle(element);
+        console.log(source, source.length, element.outerHTML.length);
       });
     </script>
     <title>Index</title>
