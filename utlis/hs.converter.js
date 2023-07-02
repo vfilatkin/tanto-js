@@ -3,7 +3,15 @@ let HSConverter = (function () {
   let config = {
     keepDOMStructure: false,
     keepFormatting: false,
-    useArrowFunctionTemplates: true
+    useArrowFunctionTemplates: true,
+    minifyRendererReferences: true,
+    renderReferences: {
+      T: {dev: 't', min: 't'}, 
+      T_ATTR: {dev: 't.attr', min: 'a'}, 
+      T_ON: {dev: 't.on', min: 'e'}, 
+      T_TEXT: {dev: 't.text', min: 'T'}, 
+      T_COMMENT: {dev: 't.comment', min: 'С'}, 
+    }
   }
 
   function CodeFormatter(tabSpaces) {
@@ -124,6 +132,10 @@ let HSConverter = (function () {
 
   }
 
+  function renderRef(key){
+    return config.minifyRendererReferences? config.renderReferences[key].min : config.renderReferences[key].dev; 
+  }
+
   function optimizeDOMStructure(rootVNode){
     let vNodeReferences = {};
     /**
@@ -190,12 +202,12 @@ let HSConverter = (function () {
           value = `'${attribute.value}'`;
         if(vNodeReference.mutableNamesMap[aI]) { parameters.push(name = ('a' + aI));}
         if(vNodeReference.mutableValuesMap[aI]) { parameters.push(value = ('v' + aI));}
-        elementAttributes.push(`t.attr(${name},${value})`)
+        elementAttributes.push(`${renderRef('T_ATTR')}(${name},${value})`)
       }
       
       return new CodeFormatter()
       .line(config.useArrowFunctionTemplates? 
-        `${vNodeReference.name}=(${parameters.join()})=>{`:
+        `let ${vNodeReference.name}=(${parameters.join()})=>{`:
         `function ${vNodeReference.name}(${parameters.join()}){`
       )
       .tab()
@@ -237,7 +249,7 @@ let HSConverter = (function () {
       for (let aI = 0, aL = attributes.length; aI < aL; aI++) {
         const attribute = attributes[aI];
         if(!reference){
-          text.push(`t.attr('${attribute.name}','${attribute.value}')`)
+          text.push(`${renderRef('T_ATTR')}('${attribute.name}','${attribute.value}')`)
         } else {
           if(reference.mutableNamesMap[aI]) text.push(`'${attribute.name}'`);
           if(reference.mutableValuesMap[aI]) text.push(`'${attribute.value}'`);
@@ -271,10 +283,10 @@ let HSConverter = (function () {
           renderElementNode(vNode, root);
           break;
         case 3:
-          currentFragment.line(`t.text\`${vNode.content}\``);
+          currentFragment.line(`${renderRef('T_TEXT')}\`${vNode.content}\``);
           break;
         case 8:
-          currentFragment.line(`t.comment\`${vNode.content}\``);
+          currentFragment.line(`${renderRef('T_COMMENT')}\`${vNode.content}\``);
           break;
       }
       currentFragment = pFragment;
@@ -346,8 +358,8 @@ let HSConverter = (function () {
       if(reference.used)
         module.append(reference.template);
     }
-    for (let block in fragments) {
-      module.append(renderFragment(block, fragments[block]))
+    for (let fragment in fragments) {
+      module.append(renderFragment(fragment, fragments[fragment]))
     }
     module
       .untab()
