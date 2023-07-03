@@ -1,16 +1,15 @@
 let HSConverter = (function () {
-
   let config = {
     keepDOMStructure: false,
-    keepFormatting: false,
-    useArrowFunctionTemplates: true,
+    keepFormatting: true,
+    useArrowFunctions: true,
     minifyRendererReferences: true,
     renderReferences: {
-      T: {dev: 't', min: 't'}, 
+      T: {dev: 't', min: 't', module: true}, 
       T_ATTR: {dev: 't.attr', min: 'a'}, 
       T_ON: {dev: 't.on', min: 'e'}, 
       T_TEXT: {dev: 't.text', min: 'T'}, 
-      T_COMMENT: {dev: 't.comment', min: 'С'}, 
+      T_COMMENT: {dev: 't.comment', min: 'C'}, 
     }
   }
 
@@ -41,6 +40,10 @@ let HSConverter = (function () {
       return this;
     }
 
+    this.insert = function(text){
+      this.text[this.text.length - 1].text += text;
+    }
+
     this.render = function () {
       let text = '';
       for (let lI = 0, tL = this.text.length; lI < tL; lI++) {
@@ -58,6 +61,56 @@ let HSConverter = (function () {
       }
       return text;
     }
+  }
+
+  function renderFunction(name, parameters, body){
+    let fn = new CodeFormatter();
+    if(config.useArrowFunctions){
+      return fn.line(`${name}=(${parameters})=>(`)
+        .tab()
+          .tab()
+            .append(body)
+            .untab()
+          .untab()
+        .line(')');
+    }
+    return fn.line(`function ${name}(${parameters}){`)
+    .tab()
+      .line('return (')
+      .tab()
+        .tab()
+          .append(body)
+          .untab()
+        .untab() 
+      .line(')')
+      .untab()
+    .line('};')
+  }
+
+  function renderDeclarationBlock(declarations){
+    let 
+      block = new CodeFormatter(), 
+      declaration, 
+      dI = 0, 
+      dL = declarations.length - 1;
+
+    if(config.useArrowFunctions){
+      block.line('let ').tab();
+      for(; dI < dL; dI++){
+        declaration = declarations[dI];
+        block.append(declaration);
+        declaration.insert(',');
+      }
+      declaration = declarations[dL];
+      declaration.insert(';');
+      block.append(declaration)
+      return block;
+    }
+    for(; dI < dL + 1; dI++){
+      declaration = declarations[dI];
+      block.append(declaration);
+    }
+    return block;
   }
 
   function toVNode(rootNode) {
@@ -205,15 +258,11 @@ let HSConverter = (function () {
         elementAttributes.push(`${renderRef('T_ATTR')}(${name},${value})`)
       }
       
-      return new CodeFormatter()
-      .line(config.useArrowFunctionTemplates? 
-        `let ${vNodeReference.name}=(${parameters.join()})=>{`:
-        `function ${vNodeReference.name}(${parameters.join()}){`
-      )
-      .tab()
-        .line(`return t('${vNodeReference.tag}'${vNodeReference.namespace ? `,'${vNodeReference.namespace}'` : ''}),${elementAttributes.join()}`)
-        .untab()
-      .line('};');
+      return renderFunction(
+        vNodeReference.name, 
+        parameters.join(), 
+        new CodeFormatter()
+        .line(`t('${vNodeReference.tag}'${vNodeReference.namespace ? `,'${vNodeReference.namespace}'` : ''}),${elementAttributes.join()}`));
     }
 
     function createReferences(){
@@ -234,29 +283,29 @@ let HSConverter = (function () {
     return createReferences();
   }
 
+  function renderNodeHeader(vNode, reference){
+    if(!reference || !reference.used) return `t('${vNode.tag}'${vNode.namespace ? `,'${vNode.namespace}'` : ''}),${renderElementNodeAttributes(vNode.attributes)}`;
+    return `${reference.name}(${renderElementNodeAttributes(vNode.attributes, reference)})`;
+  }
+
+  function renderElementNodeAttributes(attributes, reference) {
+    let text = [];
+    for (let aI = 0, aL = attributes.length; aI < aL; aI++) {
+      const attribute = attributes[aI];
+      if(!reference){
+        text.push(`${renderRef('T_ATTR')}('${attribute.name}','${attribute.value}')`)
+      } else {
+        if(reference.mutableNamesMap[aI]) text.push(`'${attribute.name}'`);
+        if(reference.mutableValuesMap[aI]) text.push(`'${attribute.value}'`);
+      }
+    }
+    return text.join();
+  }
+
   function renderFragments(rootVNode, references) {
 
     let currentFragment = new CodeFormatter();
     const FRAGMENTS = { __root__: currentFragment };
-
-    function renderNodeHeader(vNode, reference){
-      if(!reference.used) return `t('${vNode.tag}'${vNode.namespace ? `,'${vNode.namespace}'` : ''}),${renderElementNodeAttributes(vNode.attributes)}`;
-      return `${reference.name}(${renderElementNodeAttributes(vNode.attributes, reference)})`;
-    }
-
-    function renderElementNodeAttributes(attributes, reference) {
-      let text = [];
-      for (let aI = 0, aL = attributes.length; aI < aL; aI++) {
-        const attribute = attributes[aI];
-        if(!reference){
-          text.push(`${renderRef('T_ATTR')}('${attribute.name}','${attribute.value}')`)
-        } else {
-          if(reference.mutableNamesMap[aI]) text.push(`'${attribute.name}'`);
-          if(reference.mutableValuesMap[aI]) text.push(`'${attribute.value}'`);
-        }
-      }
-      return text.join();
-    }
 
     function renderElementNode(vNode, root){
       let reference = references[vNode.reference];
@@ -324,20 +373,9 @@ let HSConverter = (function () {
     return element;
   }
 
-  function renderFragment(name, code) {
-    let fragment = new CodeFormatter()
-      .line(`${name}=${config.useArrowFunctionTemplates? `()=>{`: `function (){`}`)
-      .tab()
-        .line('return (')
-          .tab()
-          .tab()
-          .append(code)
-          .untab()
-          .untab()
-        .line(')')
-        .untab()
-      .line('};');
-    return fragment;
+  function rendererReferences(){
+    let references = Object.values(config.renderReferences).filter(function(r){return !r.module;});
+    return `let [${references.map(function(r){return r.min}).join()}]=[${references.map(function(r){return r.dev}).join()}];`
   }
 
   function renderBundle(data) {
@@ -350,17 +388,20 @@ let HSConverter = (function () {
     delete fragments.__root__
     /* Create bunlde module. */
     let module = new CodeFormatter()
-      .line(`let ${Object.keys(fragments).join()};`)
-      .line('(function(){')
-      .tab();
-    for (let referenceKey in references) {
-      const reference = references[referenceKey];
-      if(reference.used)
-        module.append(reference.template);
+
+    .line(`let ${Object.keys(fragments).join()};`)
+    .line('(function(){')
+    .tab();
+
+    if(config.minifyRendererReferences)
+      module.line(rendererReferences());
+
+    module.append(renderDeclarationBlock(Object.values(references).filter(function(r){return r.used;}).map(function(r){ return r.template;})));
+
+    for (let fragmentKey in fragments) {
+      module.append(renderFunction(fragmentKey, '', fragments[fragmentKey]))
     }
-    for (let fragment in fragments) {
-      module.append(renderFragment(fragment, fragments[fragment]))
-    }
+
     module
       .untab()
       .line('})();')
