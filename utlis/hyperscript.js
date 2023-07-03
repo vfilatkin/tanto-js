@@ -1,7 +1,7 @@
-let HSConverter = (function () {
-  let config = {
-    keepDOMStructure: false,
-    keepFormatting: true,
+let HyperScript = (function () {
+  let 
+  config = {
+    keepFormatting: false,
     useArrowFunctions: true,
     minifyRendererReferences: true,
     renderReferences: {
@@ -155,9 +155,6 @@ let HSConverter = (function () {
               case 'fragment':
                 hsProps[attribute.name] = attribute.value;
                 break;
-              case 'block':
-                hsProps[attribute.name] = attribute.value;
-                break;
               default:
                 attributes.push({name: attribute.name, value: attribute.value});
             }
@@ -187,6 +184,12 @@ let HSConverter = (function () {
 
   function renderRef(key){
     return config.minifyRendererReferences? config.renderReferences[key].min : config.renderReferences[key].dev; 
+  }
+
+  const EVENT__NAMES = Object.keys(window).filter(function(key) {return /^on/.test(key)});
+
+  function isEventAttribute(name) {
+    return EVENT__NAMES.indexOf(name) !== -1;
   }
 
   function optimizeDOMStructure(rootVNode){
@@ -221,6 +224,7 @@ let HSConverter = (function () {
       if(vNodeReference){
         vNodeReference.vNodes.push(vNode);
         mapMutableAttributes(vNodeReference, vNode);
+        vNodeReference.leaf = vNodeReference.leaf? true : vNode.children.length === 0;
       } else {
         vNodeReferences[vNodeReferenceKey] = {
           tag: vNode.tag,
@@ -231,6 +235,7 @@ let HSConverter = (function () {
           vNodes: [vNode],
           used: false,
           template: null,
+          leaf: false,
         };
       }
 
@@ -262,7 +267,7 @@ let HSConverter = (function () {
         vNodeReference.name, 
         parameters.join(), 
         new CodeFormatter()
-        .line(`t('${vNodeReference.tag}'${vNodeReference.namespace ? `,'${vNodeReference.namespace}'` : ''}),${elementAttributes.join()}`));
+        .line(`t('${vNodeReference.tag}'${vNodeReference.namespace ? `,'${vNodeReference.namespace}'` : ''}),${elementAttributes.join()}${vNodeReference.leaf? ',t()': ''}`));
     }
 
     function createReferences(){
@@ -293,7 +298,11 @@ let HSConverter = (function () {
     for (let aI = 0, aL = attributes.length; aI < aL; aI++) {
       const attribute = attributes[aI];
       if(!reference){
-        text.push(`${renderRef('T_ATTR')}('${attribute.name}','${attribute.value}')`)
+        if(isEventAttribute(attribute.name)){
+          text.push(`${renderRef('T_ON')}('${attribute.name.substring(2, attribute.name.length)}',${attribute.value})`);
+        } else {
+          text.push(`${renderRef('T_ATTR')}('${attribute.name}','${attribute.value}')`)
+        }
       } else {
         if(reference.mutableNamesMap[aI]) text.push(`'${attribute.name}'`);
         if(reference.mutableValuesMap[aI]) text.push(`'${attribute.value}'`);
@@ -310,7 +319,7 @@ let HSConverter = (function () {
     function renderElementNode(vNode, root){
       let reference = references[vNode.reference];
       if (vNode.children.length === 0) {
-        currentFragment.line(`${renderNodeHeader(vNode, reference)},t(),`);
+        currentFragment.line(`${renderNodeHeader(vNode, reference)}${reference.leaf? '': ',t()'},`);
       } else {
         currentFragment.line(`${renderNodeHeader(vNode, reference)},`)
         .tab();
@@ -332,10 +341,10 @@ let HSConverter = (function () {
           renderElementNode(vNode, root);
           break;
         case 3:
-          currentFragment.line(`${renderRef('T_TEXT')}\`${vNode.content}\``);
+          currentFragment.line(`${renderRef('T_TEXT')}\`${vNode.content}\`,`);
           break;
         case 8:
-          currentFragment.line(`${renderRef('T_COMMENT')}\`${vNode.content}\``);
+          currentFragment.line(`${renderRef('T_COMMENT')}\`${vNode.content}\`,`);
           break;
       }
       currentFragment = pFragment;
@@ -378,7 +387,7 @@ let HSConverter = (function () {
     return `let [${references.map(function(r){return r.min}).join()}]=[${references.map(function(r){return r.dev}).join()}];`
   }
 
-  function renderBundle(data) {
+  function renderModule(data) {
     /* Get first node from text or element. */
     let
       rootNode = toRootNode(data),
@@ -386,7 +395,7 @@ let HSConverter = (function () {
       references = optimizeDOMStructure(rootVNode),
       fragments = renderFragments(rootVNode, references);
     delete fragments.__root__
-    /* Create bunlde module. */
+    /* Create module. */
     let module = new CodeFormatter()
 
     .line(`let ${Object.keys(fragments).join()};`)
@@ -409,6 +418,6 @@ let HSConverter = (function () {
   }
 
   return {
-    bundle: renderBundle
+    renderModule: renderModule
   };
 })();
