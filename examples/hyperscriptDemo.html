@@ -7,7 +7,11 @@
     <script>
       document.addEventListener('DOMContentLoaded', function(){
         element = document.getElementById('mainMenu');
-        const source = HyperScript.renderModule(element);
+        const source = HyperScript(element, {
+          keepFormatting: true,
+          useArrowFunctions: true,
+          minifyRendererReferences: false
+        });
         console.log(source, source.length, element.outerHTML.length);
       });
     </script>

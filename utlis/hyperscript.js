@@ -4,6 +4,7 @@ let HyperScript = (function () {
     keepFormatting: false,
     useArrowFunctions: true,
     minifyRendererReferences: true,
+    useRootNode: false,
     renderReferences: {
       T: {dev: 't', min: 't', module: true}, 
       T_ATTR: {dev: 't.attr', min: 'a'}, 
@@ -314,7 +315,7 @@ let HyperScript = (function () {
   function renderFragments(rootVNode, references) {
 
     let currentFragment = new CodeFormatter();
-    const FRAGMENTS = { __root__: currentFragment };
+    const FRAGMENTS = { Root: currentFragment };
 
     function renderElementNode(vNode, root){
       let reference = references[vNode.reference];
@@ -387,14 +388,25 @@ let HyperScript = (function () {
     return `let [${references.map(function(r){return r.min}).join()}]=[${references.map(function(r){return r.dev}).join()}];`
   }
 
-  function renderModule(data) {
+  function applyOptions(options){
+    for (let key in config) {
+      if (options[key] !== undefined)
+        config[key] = options[key];
+    }
+  }
+
+  function renderModule(data, options) {
+    /* Change config. */
+    if(options) applyOptions(options);
+
     /* Get first node from text or element. */
     let
       rootNode = toRootNode(data),
       rootVNode = toVNode(rootNode),
       references = optimizeDOMStructure(rootVNode),
       fragments = renderFragments(rootVNode, references);
-    delete fragments.__root__
+    if(!config.useRootNode)
+      delete fragments.Root
     /* Create module. */
     let module = new CodeFormatter()
 
@@ -417,7 +429,6 @@ let HyperScript = (function () {
     return module.render();
   }
 
-  return {
-    renderModule: renderModule
-  };
+  return renderModule;
+
 })();

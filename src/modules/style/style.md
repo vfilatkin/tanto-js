@@ -1,14 +1,14 @@
 # Style plugin
 Style is a CSS-in-JS plugin uses component hooks to isolate component style. 
 Allows to use identical selectors in different components.
-- [style](#style)
-- [rule](#rule)
 ### style(component)
 Applies style to component. Isolated style will be applied to component instances 
 and updated when component re-rendered or class attribute changes. Returns function
 wich transforms rules and and renders style text.
+* ***component*** - Existing tanto-js component.
 ### rule(selector)
 Accepts selector and returns tagged template function.
+* ***selector*** - CSS selector.
 ```js
 style(App)(
   rule('span')`font-family: 'Courier New', Courier, monospace;`,
