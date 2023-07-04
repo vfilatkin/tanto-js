@@ -8,9 +8,9 @@
       document.addEventListener('DOMContentLoaded', function(){
         element = document.getElementById('mainMenu');
         const source = HyperScript(element, {
-          keepFormatting: true,
+          keepFormatting: false,
           useArrowFunctions: true,
-          minifyRendererReferences: false
+          minifyRendererReferences: true
         });
         console.log(source, source.length, element.outerHTML.length);
       });
