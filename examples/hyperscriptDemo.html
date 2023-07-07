@@ -7,7 +7,7 @@
     <script>
       document.addEventListener('DOMContentLoaded', function(){
         element = document.getElementById('mainMenu');
-        const source = HyperScript(element, {
+        const source = HyperScript.renderElement(element, {
           keepFormatting: false,
           useArrowFunctions: true,
           minifyRendererReferences: true
