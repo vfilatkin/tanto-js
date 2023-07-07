@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width"/>
+    <script src="hyperscript.js"></script>
+    <script>
+      function ConvertFileToHyperscript(file, out){
+        let reader = new FileReader();
+        reader.readAsText(file);
+        reader.onload = function(){
+          out[file.name.split('.')[0]] = reader.result;
+        }
+        return reader;
+      }
+
+      function ConvertFilesToHyperscript(input){
+        let 
+        bundle = {}, 
+        readers = [];
+        [...input.files].forEach(file => {
+          readers.push(ConvertFileToHyperscript(file, bundle));
+        });
+        let task = setInterval(()=>{
+          if(readers.every(reader => { return reader.readyState === 2})){
+            let bundleText = '';
+            for(let key in bundle){
+              bundleText += bundle[key];
+            }
+            if(confirm('Copy to clipboard?')){
+              navigator.clipboard.writeText(HyperScript.renderBundle(bundle));
+              clearInterval(task)
+            }
+          }
+        })
+      }
+    </script>
+    <title>Index</title>
+  </head>
+  <body>
+    <input id="converterInput" type="file" multiple onchange="ConvertFilesToHyperscript(this);"/>
+  </body>
+</html>

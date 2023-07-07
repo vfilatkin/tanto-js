@@ -64,7 +64,7 @@ let HyperScript = (function () {
     }
   }
 
-  function renderFunction(name, parameters, body){
+  function renderFunction(name, parameters, body, semicolon){
     let fn = new CodeFormatter();
     if(config.useArrowFunctions){
       return fn.line(`${name}=(${parameters})=>(`)
@@ -83,7 +83,7 @@ let HyperScript = (function () {
           .append(body)
           .untab()
         .untab() 
-      .line(')')
+      .line(')' + semicolon? ';' : '')
       .untab()
     .line('};')
   }
@@ -94,7 +94,7 @@ let HyperScript = (function () {
       declaration, 
       dI = 0, 
       dL = declarations.length - 1;
-
+    if(dL === -1) return block;
     if(config.useArrowFunctions){
       block.line('let ').tab();
       for(; dI < dL; dI++){
@@ -420,7 +420,7 @@ let HyperScript = (function () {
     module.append(renderDeclarationBlock(Object.values(references).filter(function(r){return r.used;}).map(function(r){ return r.template;})));
 
     for (let fragmentKey in fragments) {
-      module.append(renderFunction(fragmentKey, '', fragments[fragmentKey]))
+      module.append(renderFunction(fragmentKey, '', fragments[fragmentKey], true))
     }
 
     module
@@ -429,6 +429,32 @@ let HyperScript = (function () {
     return module.render();
   }
 
-  return renderModule;
+  function renderBundle(bundle, options){
+    /* Change config. */
+    if(options) applyOptions(options);
 
+    let 
+    host = document.createElement('div'),
+    bundleKeys = Object.keys(bundle),
+    hostInnerHTML = '';
+    bundleKeys.forEach(function(key){
+      hostInnerHTML += bundle[key];
+    });
+    
+    host.innerHTML = hostInnerHTML;
+    for(let c = 0, cL = host.children.length; c < cL; c++){
+      let node = host.children[c];
+      if(node instanceof SVGAElement) {
+        node.setAttributeNS('fragment', bundleKeys[c]);
+      } else {
+        node.setAttribute('fragment', bundleKeys[c])
+      }
+    }
+    return renderModule(host)
+  }
+
+  return  {
+    renderElement: renderModule,
+    renderBundle: renderBundle,
+  };
 })();
