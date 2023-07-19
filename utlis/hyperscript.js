@@ -429,18 +429,15 @@ let HyperScript = (function () {
     return module.render();
   }
 
-  function renderBundle(bundle, options){
-    /* Change config. */
-    if(options) applyOptions(options);
-
+  function renderBundle(bundle){
     let 
     host = document.createElement('div'),
     bundleKeys = Object.keys(bundle),
     hostInnerHTML = '';
     bundleKeys.forEach(function(key){
       hostInnerHTML += bundle[key];
-    });
-    
+    })
+    console.log(bundle);
     host.innerHTML = hostInnerHTML;
     for(let c = 0, cL = host.children.length; c < cL; c++){
       let node = host.children[c];
