@@ -1,3 +1,5 @@
+import t from '../src/tanto.js';
+
 let testSignal = t.signal(123);
 
 let task = setInterval(()=>{

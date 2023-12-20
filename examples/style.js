@@ -1,3 +1,6 @@
+import t from '../src/tanto.js';
+import {style, rule} from '../src/modules/style/style.js';
+
 const Counter = initialCount => {
   let count = t.signal(initialCount);
 

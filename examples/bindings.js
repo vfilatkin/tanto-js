@@ -1,3 +1,5 @@
+import t from '../src/tanto.js';
+
 const Counter = initialCount => {
   let count = t.signal(initialCount);
   let hitLimit = t.signal(false);

@@ -1,3 +1,5 @@
+import t from '../src/tanto.js';
+
 /**
  * fetch() replacement for async operations example.
  */
@@ -67,7 +69,6 @@ const TableBody = tableData => {
     t()
   );
 }
-
 
 const TablePending = () => {
   return (

@@ -1,3 +1,5 @@
+import t from '../src/tanto.js';
+
 const Input = (initialValue, validator) => {
 
   let valid = t.signal(validator(initialValue));

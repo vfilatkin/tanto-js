@@ -1,3 +1,6 @@
+import t from '../src/tanto.js';
+import {Route, Router} from '../src/modules/router/hash.router.js';
+
 const MainView = (pathData, pathParams) => {
   return t('div'), t.text`Main page.`, t();
 }
