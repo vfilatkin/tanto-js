@@ -1,10 +1,14 @@
 import t from '../../tanto.js';
 
 let style, keyframes;
-const KEY = Symbol('component.scope.key');
-const PREFIX = 't-';
-const SCOPES = {};
-let STYLE_CONTENT = [];
+
+const 
+  KEY = Symbol('component.scope.key'),
+  PREFIX = 't-',
+  ID = {},
+  SCOPES = {};
+
+const STYLE_SHEET = new CSSStyleSheet();
 
 /* Generate random id. */
 function generateRandomId(length) {
@@ -17,34 +21,46 @@ function generateRandomId(length) {
 }
 
 /* Generate unique id within provided map. */
-function generateUID(map, length) {
+function generateUID(length) {
   let uid = generateRandomId(length);
-  while (map[uid])
+  while (ID[uid])
     uid = generateRandomId(length);
   return uid;
 }
 
 /* Create style for component. */
-style = function (component, ...rules) {
-  let uid = generateUID(SCOPES, 4);
+style = function (component, ...componentRules) {
+  let uid = generateUID(4);
+  /* Add UID to component function object. */
   component[KEY] = uid;
-  let styleSheet = new CSSStyleSheet();
-  rules.forEach(rule => {
-    styleSheet.insertRule(rule);
-  });
+  /* Store UID in scopes map. */
   SCOPES[uid] = {};
-  Object.values(styleSheet.cssRules).forEach((rule) => {
-    let selector = rule.selectorText;
+  /* Process component rules. */
+  componentRules.forEach(componentRule => {
+    let 
+      ruleIndex = STYLE_SHEET.insertRule(componentRule, STYLE_SHEET.cssRules.length),
+      rule = STYLE_SHEET.cssRules[ruleIndex],
+      selector = rule.selectorText;
+    /* Apply changes only to STYLE_RULEs. */
     if(rule.type === 1){
       if(selector[0] === '.'){
         SCOPES[uid][rule.selectorText.substr(1, selector.length - 1)] = true;
       } else {
         SCOPES[uid][selector] = true;
       }
-      STYLE_CONTENT.push(`${selector}.${PREFIX + uid}{${rule.style.cssText}}`);
+      /* Modify rule selector. */
+      rule.selectorText = `${selector}.${PREFIX + uid}`;
     }
   });
+  
   return uid;
+}
+
+/* Create keyframes. */
+keyframes = function(rule) {
+  let uid = generateUID(4);
+  STYLE_SHEET.insertRule(`@keyframes ${PREFIX}${uid}{${rule}}`, STYLE_SHEET.cssRules.length);
+  return PREFIX + uid;
 }
 
 let 
@@ -53,12 +69,7 @@ let
 /* Connect to tanto.js render hooks */
 t.module({
   openRoot: function(){
-    let styleSheet = document.createElement('style');
-    styleSheet.id = 't-style-section'
-    styleSheet.type='text/css';
-    styleSheet.textContent = STYLE_CONTENT.join('');
-    document.head.appendChild(styleSheet);
-    STYLE_CONTENT = null;
+    document.adoptedStyleSheets = [...document.adoptedStyleSheets, STYLE_SHEET];
   },
   openComponent: function(component){
     previousScope = currentScope;
@@ -67,8 +78,9 @@ t.module({
   openNode: function (tagName, nodeType){
     let scope = SCOPES[currentScope];
     if(nodeType === Node.ELEMENT_NODE){
-      if(scope && scope[tagName])
+      if(scope && scope[tagName]){
         t.node().classList.add(PREFIX + currentScope);
+      }
     }
   },
   setAttribute: function(name){

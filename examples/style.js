@@ -1,5 +1,5 @@
 import t from '../src/tanto.js';
-import {style} from '../src/modules/style/style.js';
+import {style, keyframes} from '../src/modules/style/style.js';
 
 const Counter = initialCount => {
   let count = t.signal(initialCount);
@@ -21,6 +21,30 @@ const Counter = initialCount => {
   );
 }
 
+const AnimatedSquare = () => {
+  return (
+    t('div'),
+
+    t()
+  );
+}
+
+let rotate = keyframes(`
+0% {transform:rotate(0deg);}
+100% {transform:rotate(360deg);}`);
+
+style(
+  AnimatedSquare,
+  `div {
+    position: absolute;
+    width: 50px;
+    height: 50px;
+    background-color: #b94ccd;
+    animation: ${rotate} 3s linear infinite;
+  }`,
+  )
+
+
 style(
 Counter,
 `.my-rule {color: white;}`,
@@ -36,7 +60,7 @@ Counter,
   cursor: pointer;
   padding: 10px 24px;
   border-radius: 5px;
-  font-size: 16px;
+  font-size: 16px
 }`,
 `button:hover {background-color: #AAAAFF;}`
 )
@@ -52,6 +76,7 @@ const App = title => {
       t(Counter, 1),
       t(Counter, 5),
       t(Counter, 7),
+      t(AnimatedSquare),
     t()
   );
 }
