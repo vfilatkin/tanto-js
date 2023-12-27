@@ -1,5 +1,5 @@
 import t from '../src/tanto.js';
-import {style, rule} from '../src/modules/style/style.js';
+import {style} from '../src/modules/style/style.js';
 
 const Counter = initialCount => {
   let count = t.signal(initialCount);
@@ -20,23 +20,25 @@ const Counter = initialCount => {
   );
 }
 
-style(Counter)(
-  rule('span')`font-weight: bold;`,
-  rule('button')`
-    background-color: #7777DD;
-    border: none;
-    color: white;
-    text-align: center;
-    text-decoration: none;
-    display: inline-block;
-    margin: 4px 2px;
-    cursor: pointer;
-    padding: 10px 24px;
-    border-radius: 5px;
-    font-size: 16px;
-  `,
-  rule('button:hover')`background-color: #AAAAFF;`
-);
+style(
+Counter,
+`span {font-weight: bold;}`,
+`button {
+  background-color: #7777DD;
+  border: none;
+  color: white;
+  text-align: center;
+  text-decoration: none;
+  display: inline-block;
+  margin: 4px 2px;
+  cursor: pointer;
+  padding: 10px 24px;
+  border-radius: 5px;
+  font-size: 16px;
+}`,
+`button:hover {background-color: #AAAAFF;}`
+)
+
 
 const App = title => {
   return (
@@ -52,8 +54,8 @@ const App = title => {
   );
 }
 
-style(App)(
-  rule('span')`font-family: 'Courier New', Courier, monospace;`
+style(App,
+  `span {font-family: 'Courier New', Courier, monospace;}`
 );
 
 t.mount('#app', App, 'This is a style example');
