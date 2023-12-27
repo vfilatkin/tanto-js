@@ -1,10 +1,10 @@
 import t from '../../tanto.js';
 
 let style, keyframes;
-const COMPONENT__SCOPE__KEY = Symbol('component.scope.key');
-const COMPONENT__SCOPE__CLASS__PREFIX = 't-';
-let COMPONENTS__UID__MAP = {};
-let STYLE = [];
+const KEY = Symbol('component.scope.key');
+const PREFIX = 't-';
+const SCOPES = {};
+let STYLE_CONTENT = [];
 
 /* Generate random id. */
 function generateRandomId(length) {
@@ -26,14 +26,23 @@ function generateUID(map, length) {
 
 /* Create style for component. */
 style = function (component, ...rules) {
-  let uid = generateUID(COMPONENTS__UID__MAP, 4);
-  component[COMPONENT__SCOPE__KEY] = uid;
+  let uid = generateUID(SCOPES, 4);
+  component[KEY] = uid;
   let styleSheet = new CSSStyleSheet();
   rules.forEach(rule => {
     styleSheet.insertRule(rule);
   });
+  SCOPES[uid] = {};
   Object.values(styleSheet.cssRules).forEach((rule) => {
-    STYLE.push(`${rule.selectorText}.${COMPONENT__SCOPE__CLASS__PREFIX + uid}{${rule.style.cssText}}`);
+    let selector = rule.selectorText;
+    if(rule.type === 1){
+      if(selector[0] === '.'){
+        SCOPES[uid][rule.selectorText.substr(1, selector.length - 1)] = true;
+      } else {
+        SCOPES[uid][selector] = true;
+      }
+      STYLE_CONTENT.push(`${selector}.${PREFIX + uid}{${rule.style.cssText}}`);
+    }
   });
   return uid;
 }
@@ -45,26 +54,27 @@ let
 t.module({
   openRoot: function(){
     let styleSheet = document.createElement('style');
-    styleSheet.type="text/css";
-    styleSheet.textContent = STYLE.join('');
+    styleSheet.id = 't-style-section'
+    styleSheet.type='text/css';
+    styleSheet.textContent = STYLE_CONTENT.join('');
     document.head.appendChild(styleSheet);
-    STYLE = null;
-    COMPONENTS__UID__MAP = null;
+    STYLE_CONTENT = null;
   },
   openComponent: function(component){
     previousScope = currentScope;
-    currentScope = component[COMPONENT__SCOPE__KEY];
-    console.log(currentScope);
+    currentScope = component[KEY];
   },
   openNode: function (tagName, nodeType){
-    // if(nodeType === Node.ELEMENT_NODE){
-    //   if(styleData && styleData.tags.indexOf(tagName) > -1)
-    //     t.node().classList.add(SCOPE_PREFIX + currentScope);
-    // }
+    let scope = SCOPES[currentScope];
+    if(nodeType === Node.ELEMENT_NODE){
+      if(scope && scope[tagName])
+        t.node().classList.add(PREFIX + currentScope);
+    }
   },
   setAttribute: function(name){
-    // if(name === 'class')
-    //   t.node().classList.add(SCOPE_PREFIX + currentScope);
+    let scope = SCOPES[currentScope];
+    if(name === 'class' && scope)
+      t.node().classList.add(PREFIX + currentScope);
   },
   closeComponent: function(){
     currentScope = previousScope;

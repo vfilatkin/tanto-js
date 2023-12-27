@@ -10,6 +10,7 @@ const Counter = initialCount => {
 
   return (
     t('div'),
+      t.class('my-rule'),
       t('button'),
         t.on('click', handleClick),
         t('span'),
@@ -22,6 +23,7 @@ const Counter = initialCount => {
 
 style(
 Counter,
+`.my-rule {color: white;}`,
 `span {font-weight: bold;}`,
 `button {
   background-color: #7777DD;
@@ -54,8 +56,6 @@ const App = title => {
   );
 }
 
-style(App,
-  `span {font-family: 'Courier New', Courier, monospace;}`
-);
+style(App,`span {font-family: 'Courier New', Courier, monospace;}`);
 
 t.mount('#app', App, 'This is a style example');
