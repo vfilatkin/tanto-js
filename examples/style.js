@@ -21,30 +21,6 @@ const Counter = initialCount => {
   );
 }
 
-const AnimatedSquare = () => {
-  return (
-    t('div'),
-
-    t()
-  );
-}
-
-let rotate = keyframes(`
-0% {transform:rotate(0deg);}
-100% {transform:rotate(360deg);}`);
-
-style(
-  AnimatedSquare,
-  `div {
-    position: absolute;
-    width: 50px;
-    height: 50px;
-    background-color: #b94ccd;
-    animation: ${rotate} 3s linear infinite;
-  }`,
-  )
-
-
 style(
 Counter,
 `.my-rule {color: white;}`,
@@ -63,8 +39,27 @@ Counter,
   font-size: 16px
 }`,
 `button:hover {background-color: #AAAAFF;}`
-)
+);
 
+const AnimatedSquare = () => {
+  return (
+    t('div'),t()
+  );
+}
+
+let rotate = keyframes`
+0% {transform:rotate(0deg);}
+100% {transform:rotate(360deg);}`;
+
+style(
+AnimatedSquare,
+`div {
+  position: absolute;
+  width: 50px;
+  height: 50px;
+  background-color: #b94ccd;
+  animation: ${rotate} 3s linear infinite;
+}`);
 
 const App = title => {
   return (

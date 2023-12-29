@@ -28,6 +28,16 @@ function generateUID(length) {
   return uid;
 }
 
+/* Concat template string and run expressions. */
+function normalizeTemplateString(strings, expressions){
+  let res = '', l = strings.length;
+  for(let i = 0; i < l; i++){
+    const ex = expressions[i];
+    res += strings[i] + (ex? (typeof ex === 'function'? ex() : ex): '');
+  }
+  return res;
+}
+
 /* Create style for component. */
 style = function (component, ...componentRules) {
   let uid = generateUID(4);
@@ -57,9 +67,9 @@ style = function (component, ...componentRules) {
 }
 
 /* Create keyframes. */
-keyframes = function(rule) {
+keyframes = function(strings, ...expressions) {
   let uid = generateUID(4);
-  STYLE_SHEET.insertRule(`@keyframes ${PREFIX}${uid}{${rule}}`, STYLE_SHEET.cssRules.length);
+  STYLE_SHEET.insertRule(`@keyframes ${PREFIX}${uid}{${normalizeTemplateString(strings, expressions)}}`, STYLE_SHEET.cssRules.length);
   return PREFIX + uid;
 }
 
