@@ -4,14 +4,21 @@ import {style, keyframes} from '../src/modules/style/style.js';
 const Counter = initialCount => {
   let count = t.signal(initialCount);
 
+  let css = t.signal({
+    'primary': true,
+    'limit': false,
+  });
+
   const handleClick = () => {
     count.$++;
+    if(count.$ >= 10) css.$ = {...css.$, limit: true};
   }
 
   return (
     t('div'),
       t.class('my-rule'),
       t('button'),
+        t.classList(css),
         t.on('click', handleClick),
         t('span'),
           t.text`Click ${count}`,
@@ -38,8 +45,9 @@ Counter,
   border-radius: 5px;
   font-size: 16px
 }`,
-`button:hover {background-color: #AAAAFF;}`
-);
+`button.limit {
+  background-color: #f59189;
+}`);
 
 const AnimatedSquare = () => {
   return (

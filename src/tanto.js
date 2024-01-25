@@ -361,6 +361,7 @@ let
   useCurrentNode,
   setCurrentNodeAttribute,
   setCurrentNodeClassAttribute,
+  setCurrentNodeClassList,
   setCurrentNodeListener,
   setCurrentNodeBinding,
   createTextNodes;
@@ -765,6 +766,31 @@ let
     interpolateAttributeExpression('class', value);
   }
 
+  /* Toggle current node classes from classList. */
+  function toggleCurrentNodeClassList(list){
+    Object.keys(list).forEach(key => {
+      currentNode.classList.toggle(key, list[key]);
+    });
+  }
+
+  /* Set current node class list attribute. */
+  setCurrentNodeClassList = function (value) {
+    if (typeof value === 'function') {
+      setCurrentNodeBinding(function () {
+        toggleCurrentNodeClassList(value());
+      });
+      return
+    }
+    if (isSignal(value)) {
+      setCurrentNodeBinding(function () {
+        toggleCurrentNodeClassList(value.$);
+      });
+      return
+    }
+    toggleCurrentNodeClassList(value);
+    modules.setAttribute.forEach(hook => hook('class', value));
+  }
+
   /* Set current node event listener. */
   setCurrentNodeListener = function (name, fn, options) {
     let node = currentNode;
@@ -939,6 +965,7 @@ t.root = rootImpl;
 t.cleanup = cleanupImpl;
 t.attr = setCurrentNodeAttribute;
 t.class = setCurrentNodeClassAttribute;
+t.classList = setCurrentNodeClassList;
 t.on = setCurrentNodeListener;
 t.node = useCurrentNode;
 t.bind = setCurrentNodeBinding;
