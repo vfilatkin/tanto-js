@@ -38,6 +38,32 @@ function normalizeTemplateString(strings, expressions){
   return res;
 }
 
+/* Returns true if CSSStyleRule. */
+function isStyleRule(rule){
+  return rule.selectorText;
+}
+
+/* Modify current rule. */
+function modifyRule(rule, uid){
+  let selector = rule.selectorText;
+  if(selector[0] === '.'){
+    SCOPES[uid][rule.selectorText.substr(1, selector.length - 1)] = true;
+  } else {
+    SCOPES[uid][selector] = true;
+  }
+  /* Modify rule selector. */
+  rule.selectorText = `${selector}.${PREFIX + uid}`;
+  modifyRules(rule.cssRules, uid);
+}
+
+/* Modify cssRules of current rule. */
+function modifyRules(rules, uid){
+  for (let i = 0; i < rules.length; i++) {
+    const rule = rules[i];
+    modifyRule(rule, uid);
+  }
+}
+
 /* Create style for component. */
 style = function (component, ...componentRules) {
   let uid = generateUID(4);
@@ -49,20 +75,14 @@ style = function (component, ...componentRules) {
   componentRules.forEach(componentRule => {
     let 
       ruleIndex = STYLE_SHEET.insertRule(componentRule, STYLE_SHEET.cssRules.length),
-      rule = STYLE_SHEET.cssRules[ruleIndex],
-      selector = rule.selectorText;
-    /* Apply changes only to STYLE_RULEs. */
-    if(rule.type === 1){
-      if(selector[0] === '.'){
-        SCOPES[uid][rule.selectorText.substr(1, selector.length - 1)] = true;
-      } else {
-        SCOPES[uid][selector] = true;
-      }
-      /* Modify rule selector. */
-      rule.selectorText = `${selector}.${PREFIX + uid}`;
+      rule = STYLE_SHEET.cssRules[ruleIndex];
+    /* Apply scope. */
+    if(isStyleRule(rule)){
+      modifyRule(rule, uid);
+    } else {
+      modifyRules(rule.cssRules, uid);
     }
   });
-  
   return uid;
 }
 

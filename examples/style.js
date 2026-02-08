@@ -84,6 +84,20 @@ const App = title => {
   );
 }
 
-style(App,`span {font-family: 'Courier New', Courier, monospace;}`);
+style(
+App,
+`span{
+  font-family: 'Courier New', Courier, monospace;
+}`, 
+`@media (max-width: 600px) {
+  span{
+    grid-template-columns: repeat(3, 128px);
+  }
+}`,
+`.parent {
+  .child {
+    /* child of parent styles */
+  }
+}`);
 
 t.mount('#app', App, 'This is a style example');
