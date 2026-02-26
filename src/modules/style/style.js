@@ -43,16 +43,41 @@ function isStyleRule(rule){
   return rule.selectorText;
 }
 
+function modifySelectorText(selectorText, uid){
+
+  let selectorClasses = [];
+  let selectorExpressions = selectorText
+  .split(',')
+  .map(selector => selector.split(/(\b\s\b|\>|\~|\+)/));
+  
+  selectorText = selectorExpressions.map(expression => {
+    return expression.map(selectorToken =>{
+      if(selectorToken.match(/\>|\~|\+/) || selectorToken === ' ') return selectorToken;
+      return selectorToken
+      .trim()
+      .split(/(\.)/)
+      .map(selector => {
+        if(selector === '' || selector === '.') return selector;
+        selector = selector.split(/(\:|\[)/);
+        selectorClasses.push(selector[0])
+        selector[0] = `${[selector[0]]}.${PREFIX}${uid}`;
+        return selector.join('');
+      }).join('');
+    }).join('');
+  }).join();
+
+  return [selectorText, selectorClasses]
+}
+
 /* Modify current rule. */
 function modifyRule(rule, uid){
-  let selector = rule.selectorText;
-  if(selector[0] === '.'){
-    SCOPES[uid][rule.selectorText.substr(1, selector.length - 1)] = true;
-  } else {
-    SCOPES[uid][selector] = true;
-  }
+  let [selectorText, selectorClasses] = modifySelectorText(rule.selectorText, uid);
+  
+  selectorClasses.forEach(selectorClass => {SCOPES[uid][selectorClass] = true})
+
   /* Modify rule selector. */
-  rule.selectorText = `${selector}.${PREFIX + uid}`;
+  rule.selectorText = selectorText;
+  
   modifyRules(rule.cssRules, uid);
 }
 
@@ -71,6 +96,7 @@ style = function (component, ...componentRules) {
   component[KEY] = uid;
   /* Store UID in scopes map. */
   SCOPES[uid] = {};
+  
   /* Process component rules. */
   componentRules.forEach(componentRule => {
     let 
@@ -93,19 +119,18 @@ keyframes = function(strings, ...expressions) {
   return PREFIX + uid;
 }
 
-let 
-  currentScope = null,
-  previousScope = null;
+/* Gets a current component scope prefix. */
+function getScope(){
+  return t.component()[KEY];
+}
+
 /* Connect to tanto.js render hooks */
 t.module({
-  openRoot: function(){
+  openRoot: function () {
     document.adoptedStyleSheets = [...document.adoptedStyleSheets, STYLE_SHEET];
   },
-  openComponent: function(component){
-    previousScope = currentScope;
-    currentScope = component[KEY];
-  },
-  openNode: function (tagName, nodeType){
+  openNode: function (tagName, nodeType) {
+    let currentScope = getScope();
     let scope = SCOPES[currentScope];
     if(nodeType === Node.ELEMENT_NODE){
       if(scope && scope[tagName]){
@@ -113,15 +138,12 @@ t.module({
       }
     }
   },
-  setAttribute: function(name){
+  setAttribute: function (name) {
+    let currentScope = getScope();
     let scope = SCOPES[currentScope];
     if(name === 'class' && scope)
       t.node().classList.add(PREFIX + currentScope);
   },
-  closeComponent: function(){
-    currentScope = previousScope;
-    previousScope = currentScope;
-  }
 });
 
 export {style, keyframes}

@@ -368,6 +368,7 @@ let
 
 let
   mount,
+  getCurrentComponent,
   mountComponent;
 
 (function () {
@@ -391,8 +392,7 @@ let
     currentNode = null,
     previousNode = null,
     patchRoot = null,
-    patchParent = null,
-    currentComponent = null;
+    patchParent = null;
   /**
    * Patches elements of DOM-tree
    * @param {element} element - Entry element of patch.
@@ -415,9 +415,8 @@ let
         pCurrentNode = currentNode,
         pPreviousNode = previousNode,
         pPatchRoot = patchRoot,
-        pPatchParent = patchParent,
-        pCurrentComponent = currentComponent;
-      //Setup new patch context copy
+        pPatchParent = patchParent;
+      /* Setup new patch context copy. */
       currentRootNode = element;
       namespace = namespaceURI ? { node: element, URI: namespaceURI } : null;
       previousCommand = null;
@@ -427,7 +426,6 @@ let
       previousNode = null;
       patchRoot = null;
       patchParent = null;
-      currentComponent = null;
       try {
         patcherFn(patchFn)
       } finally {
@@ -440,7 +438,6 @@ let
         previousNode = pPreviousNode;
         patchRoot = pPatchRoot;
         patchParent = pPatchParent;
-        currentComponent = pCurrentComponent;
       }
       return element;
     }
@@ -841,16 +838,12 @@ let
   /* Set current node bindings. */
   setCurrentNodeBinding = function (fn) {
     let
-      _currentNode = currentNode,
-      _currentComponent = currentComponent;
+      _currentNode = currentNode;
     effectImpl(function () {
-      let pCurrentNode = currentNode,
-        pCurrentComponent = currentComponent;
+      let pCurrentNode = currentNode;
       currentNode = _currentNode;
-      currentComponent = _currentComponent;
       fn.call(_currentNode);
       currentNode = pCurrentNode;
-      currentComponent = pCurrentComponent;
     });
   }
 
@@ -885,7 +878,17 @@ let
     return node;
   }
 
+  /* Tracks a current component. */
+  var currentComponent;
+  
+  /* Returns current component function. */
+  getCurrentComponent = function () {
+    return currentComponent;
+  }
+
   mountComponent = function (componentFunction, ...props) {
+    let pCurrentComponent = currentComponent;
+    currentComponent = componentFunction
     modules.openComponent.forEach(hook => hook(componentFunction, ...props));
     let component;
     rootImpl(function () {
@@ -895,6 +898,7 @@ let
       }
     });
     modules.closeComponent.forEach(hook => hook(componentFunction, ...props));
+    currentComponent = pCurrentComponent;
     return component;
   }
 
@@ -968,6 +972,7 @@ t.class = setCurrentNodeClassAttribute;
 t.classList = setCurrentNodeClassList;
 t.on = setCurrentNodeListener;
 t.node = useCurrentNode;
+t.component = getCurrentComponent;
 t.bind = setCurrentNodeBinding;
 t.text = createTextNodes;
 t.module = moduleImpl;
